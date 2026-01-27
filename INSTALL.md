@@ -53,6 +53,8 @@ cp .env.example .env
 Отредактируйте `.env` и добавьте ваши ключи:
 ```
 GEMINI_API_KEY=ваш_ключ_здесь
+# Если нужен прокси (SOCKS5/HTTP):
+GEMINI_PROXY_URL=socks5://login:password@ip:port
 ```
 
 ## 6. Запуск приложения
@@ -69,7 +71,6 @@ cd brick-catalog
 npm run dev
 ```
 Фронтенд будет доступен по адресу `http://localhost:3000`.
-
 ### Вариант Б: Продакшн (Рекомендуется PM2)
 Мы рекомендуем использовать PM2 для управления процессами:
 ```bash
@@ -81,3 +82,14 @@ cd brick-catalog
 npm run build
 pm2 start "npm start" --name lick-frontend
 ```
+
+## Прокси и Pip
+Если ваш сервер не имеет прямого доступа в интернет и требует SOCKS-прокси даже для установки пакетов (`pip install`), вам необходимо настроить прокси **в терминале** перед установкой:
+
+```bash
+export HTTP_PROXY=socks5://user:pass@host:port
+export HTTPS_PROXY=socks5://user:pass@host:port
+pip install -r requirements.txt
+```
+
+Настройка в `.env` (описанная выше) влияет только на работу самого приложения (ИИ, запросы), но не на установку библиотек. Мы добавили библиотеку `pysocks`, чтобы приложение корректно работало через SOCKS.
