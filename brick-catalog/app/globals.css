@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-anthropic-sans), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+:root {
+  /* Design System Colors - Neutral Base */
+  --bg-primary: #ffffff;
+  --bg-secondary: #faf9f5;
+  /* Warm light gray applied to sidebar usually */
+  --text-primary: #141413;
+  --text-secondary: #3d3d3a;
+  --text-muted: #73726c;
+
+  --accent-orange: #c6613f;
+  /* Keep for specific nuances, NOT global primary */
+
+  /* Shadcn Mapping */
+  --background: 0 0% 100%;
+  --foreground: 60 7% 8%;
+  /* #141413 */
+
+  --card: 0 0% 100%;
+  --card-foreground: 60 7% 8%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 60 7% 8%;
+
+  /* CHANGED: Primary is now dark neutral (buttons, active states), not orange */
+  --primary: 60 7% 8%;
+  /* #141413 */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 36 29% 97%;
+  /* #faf9f5 */
+  --secondary-foreground: 60 7% 8%;
+
+  --muted: 36 21% 92%;
+  --muted-foreground: 55 3% 43%;
+  /* #73726c */
+
+  --accent: 36 29% 94%;
+  /* Slightly darker secondary for hover */
+  --accent-foreground: 60 7% 8%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 30 4% 12% 0.1;
+  /* More subtle border */
+  --input: 30 4% 12% 0.1;
+  --ring: 30 4% 12% 0.2;
+
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+  }
+}
+/* Scrollbar Hiding Utilities */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}

@@ -19,6 +19,7 @@ debug_*.py
 patch_*.py
 test_*.py
 get_valid_url.py
+telegram_bot.py
 
 # Exported archives
 lick_brick_content_*.zip
