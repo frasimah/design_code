@@ -15,7 +15,7 @@ from config.settings import GEMINI_API_KEY, DATA_DIR
 from src.ai.embeddings import BrickEmbeddings
 
 console = Console()
-genai.configure(api_key=GEMINI_API_KEY)
+genai.configure(api_key=GEMINI_API_KEY, transport="rest")
 
 # Модель для анализа изображений
 vision_model = genai.GenerativeModel("gemini-3-flash-preview")

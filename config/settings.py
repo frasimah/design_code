@@ -14,6 +14,15 @@ load_dotenv()
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8384830526:AAEYlUUOKSETvodhi6GCLERby2SWYZDpHIA")
 HF_TOKEN = os.getenv("HF_TOKEN", "")
+GEMINI_PROXY_URL = os.environ.get("GEMINI_PROXY_URL")
+
+# Apply Proxy if set
+if GEMINI_PROXY_URL:
+    os.environ["HTTP_PROXY"] = GEMINI_PROXY_URL
+    os.environ["HTTPS_PROXY"] = GEMINI_PROXY_URL
+    # Also set lowercase for some libraries that might check it
+    os.environ["http_proxy"] = GEMINI_PROXY_URL
+    os.environ["https_proxy"] = GEMINI_PROXY_URL
 
 
 

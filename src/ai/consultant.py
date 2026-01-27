@@ -35,7 +35,8 @@ class BrickConsultant:
     
     def __init__(self):
         """Инициализация консультанта"""
-        genai.configure(api_key=GEMINI_API_KEY)
+        # Используем REST транспорт для поддержки SOCKS прокси
+        genai.configure(api_key=GEMINI_API_KEY, transport="rest")
         
         # Модели
         self.chat_model = genai.GenerativeModel(

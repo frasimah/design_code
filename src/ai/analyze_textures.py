@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config.settings import GEMINI_API_KEY, DATA_DIR
 
 console = Console()
-genai.configure(api_key=GEMINI_API_KEY)
+genai.configure(api_key=GEMINI_API_KEY, transport="rest")
 
 # Модель из README.md
 model = genai.GenerativeModel("gemini-3-flash-preview")

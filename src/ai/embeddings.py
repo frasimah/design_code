@@ -35,8 +35,62 @@ class BrickEmbeddings:
         # Инициализируем ChromaDB с персистентным хранилищем
         self.client = chromadb.PersistentClient(path=persist_directory)
         
-        # Используем Google embedding function
-        self.embedding_fn = embedding_functions.GoogleGenerativeAiEmbeddingFunction(
+import os
+import requests
+from chromadb import Documents, EmbeddingFunction, Embeddings
+
+class ProxiedGeminiEmbeddingFunction(EmbeddingFunction):
+    """Custom Embedding Function using REST API directly to support SOCKS proxy"""
+    def __init__(self, api_key: str, model_name: str = "models/text-embedding-004"):
+        self.api_key = api_key
+        self.model_name = model_name
+        self.url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:embedContent?key={api_key}"
+
+    def __call__(self, input: Documents) -> Embeddings:
+        # Batching is better, but for simplicity let's do one by one or small batches
+        # API supports batchEmbedContents but here we implement single embed per doc for safety
+        # or we can iterate. Input is a list of strings.
+        embeddings = []
+        for text in input:
+            payload = {
+                "model": self.model_name,
+                "content": {"parts": [{"text": text}]}
+            }
+            try:
+                response = requests.post(self.url, json=payload, timeout=20)
+                if response.ok:
+                    data = response.json()
+                    # Extract embedding. Format: {'embedding': {'values': [...]}}
+                    emb = data.get('embedding', {}).get('values', [])
+                    embeddings.append(emb)
+                else:
+                    print(f"Error embedding text: {response.text}", file=sys.stderr)
+                    # return empty list or zero vector to avoid crash? 
+                    # specific length needed? 768 usually.
+                    embeddings.append([0.0]*768) 
+            except Exception as e:
+                print(f"Exception embedding text: {e}", file=sys.stderr)
+                embeddings.append([0.0]*768)
+        return embeddings
+
+class BrickEmbeddings:
+    """Класс для работы с эмбеддингами продуктов"""
+    
+    def __init__(self, persist_directory: Optional[str] = None):
+        """
+        Инициализация ChromaDB и эмбеддинг-функции
+        
+        Args:
+            persist_directory: Папка для хранения БД (по умолчанию data/embeddings)
+        """
+        if persist_directory is None:
+            persist_directory = str(DATA_DIR / "embeddings")
+        
+        # Инициализируем ChromaDB с персистентным хранилищем
+        self.client = chromadb.PersistentClient(path=persist_directory)
+        
+        # Используем Custom embedding function для поддержки Proxy
+        self.embedding_fn = ProxiedGeminiEmbeddingFunction(
             api_key=GEMINI_API_KEY,
             model_name="models/text-embedding-004"
         )

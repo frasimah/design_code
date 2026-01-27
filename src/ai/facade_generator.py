@@ -18,7 +18,7 @@ console = Console()
 logger = logging.getLogger(__name__)
 
 # Настраиваем Gemini
-genai.configure(api_key=GEMINI_API_KEY)
+genai.configure(api_key=GEMINI_API_KEY, transport="rest")
 
 # Модель для редактирования изображений
 # Важно: используем правильное название модели из документации
