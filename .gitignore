@@ -1,0 +1,78 @@
+# Python
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Content & Data (Exported separately)
+data/
+temp_img/
+output_*.jpg
+*.log
+
+# Scrapers & parsers (Local utils, not part of deployed app)
+scrape_*.py
+parse_*.py
+debug_*.py
+patch_*.py
+test_*.py
+get_valid_url.py
+
+# Exported archives
+lick_brick_content_*.zip
+
+# OS
+.DS_Store
+
+# Cursor/IDE
+.idea/
+.vscode/ads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Data files
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
