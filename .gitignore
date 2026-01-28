@@ -35,6 +35,7 @@ lick_brick_content_*.zip
 eggs/
 .eggs/
 lib/
+!brick-catalog/lib/
 lib64/
 parts/
 sdist/
