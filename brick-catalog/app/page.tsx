@@ -364,7 +364,7 @@ export default function Home() {
   return (
     <div className="flex h-screen bg-background overflow-hidden font-sans text-primary">
       <Sidebar
-        className="hidden md:flex border-r-0 bg-secondary"
+        className="flex border-r-0 bg-secondary"
         onNewChat={() => { handleNewChat(); setCurrentView('chat'); }}
         history={history}
         onSelectChat={(id) => { handleSelectChat(id); setCurrentView('chat'); }}

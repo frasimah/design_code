@@ -20,6 +20,21 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 export function Sidebar({ className, onNewChat, history, onSelectChat, onDeleteChat, projects, onViewProjects, onSelectProject, onViewMaterials, ...props }: SidebarProps) {
     const [collapsed, setCollapsed] = React.useState(false);
 
+    // Default to collapsed on mobile
+    React.useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 768) {
+                setCollapsed(true);
+            }
+        };
+
+        // Check on mount
+        handleResize();
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     return (
         <div
             className={cn(
