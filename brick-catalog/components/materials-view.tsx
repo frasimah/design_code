@@ -32,17 +32,19 @@ function useDebounceValue<T>(value: T, delay: number): T {
 export function MaterialsView({ onBack, onProductClick, onSave }: MaterialsViewProps) {
     const [query, setQuery] = useState("");
     const debouncedQuery = useDebounceValue(query, 500);
+    const [selectedColor, setSelectedColor] = useState<string>("all");
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // Fetch products when query changes
+    // Fetch products when query or color changes
     useEffect(() => {
         let active = true;
 
         async function fetchProducts() {
             setLoading(true);
             try {
-                const data = await api.getProducts(debouncedQuery);
+                // Pass selectedColor to API
+                const data = await api.getProducts(debouncedQuery, 1000, selectedColor);
                 if (active) {
                     setProducts(data);
                 }
@@ -56,7 +58,22 @@ export function MaterialsView({ onBack, onProductClick, onSave }: MaterialsViewP
         fetchProducts();
 
         return () => { active = false; };
-    }, [debouncedQuery]);
+    }, [debouncedQuery, selectedColor]);
+
+    const colors = [
+        { value: "all", label: "Все цвета" },
+        { value: "бежевый", label: "Бежевый" },
+        { value: "белый", label: "Белый" },
+        { value: "жёлтый", label: "Жёлтый" },
+        { value: "зеленый", label: "Зеленый" },
+        { value: "коричневый", label: "Коричневый" },
+        { value: "красный", label: "Красный" },
+        { value: "оранжевый", label: "Оранжевый" },
+        { value: "пурпурный", label: "Пурпурный" },
+        { value: "розовый", label: "Розовый" },
+        { value: "серый", label: "Серый" },
+        { value: "чёрный", label: "Чёрный" },
+    ];
 
     return (
         <div className="h-full flex flex-col bg-[#faf9f5]">
@@ -78,6 +95,23 @@ export function MaterialsView({ onBack, onProductClick, onSave }: MaterialsViewP
                                 className="w-full h-10 pl-9 pr-4 rounded-full bg-white border border-[#1f1e1d0f] text-sm focus:outline-none focus:border-[#c6613f]/50 transition-colors placeholder:text-muted-foreground/60"
                             />
                         </div>
+
+                        {/* Color Filter */}
+                        <div className="relative">
+                            <select
+                                value={selectedColor}
+                                onChange={(e) => setSelectedColor(e.target.value)}
+                                className="h-10 pl-4 pr-10 rounded-full bg-white border border-[#1f1e1d0f] text-sm text-[#565552] focus:outline-none focus:border-[#c6613f]/50 appearance-none cursor-pointer hover:bg-neutral-50 transition-colors min-w-[140px]"
+                            >
+                                {colors.map((c) => (
+                                    <option key={c.value} value={c.value}>
+                                        {c.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <ArrowDownUp className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        </div>
+
                         <Button variant="outline" className="gap-2 rounded-full h-10 px-5 border-[#1f1e1d0f] bg-white hover:bg-neutral-50 text-[#565552]">
                             <ArrowDownUp className="h-4 w-4" />
                             <span>Сортировка</span>

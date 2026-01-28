@@ -26,11 +26,15 @@ embeddings = BrickEmbeddings()
 async def get_products(
     skip: int = 0, 
     limit: int = 1000, 
-    query: Optional[str] = None
+    query: Optional[str] = None,
+    color: Optional[str] = None
 ):
     """
     Get list of products with optional search query.
     """
+    # If semantic search or text search was performed, we filter the results
+    # If no search, we filter the full catalog
+    
     if query:
         # Prioritize text search (Name or Article)
         q_lower = query.lower()
@@ -43,20 +47,29 @@ async def get_products(
                 text_matches.append(p)
         
         # If we have exact/substring matches, return them
-        if text_matches:
-            return text_matches
-            
+        candidates = text_matches if text_matches else []
+        
         # Fallback to semantic search if no text matches
-        results = embeddings.search(query, n_results=limit)
-        products = []
-        for r in results:
-            product = catalog_dict.get(r['slug'])
-            if product:
-                products.append(product)
-        return products
-    
-    # Return paginated list
-    return catalog_data[skip : skip + limit]
+        if not candidates:
+            results = embeddings.search(query, n_results=limit)
+            for r in results:
+                product = catalog_dict.get(r['slug'])
+                if product:
+                    candidates.append(product)
+    else:
+        # No query, start with full catalog
+        candidates = catalog_data
+
+    # Apply Color Filter if present
+    if color:
+        color_lower = color.lower()
+        candidates = [
+            p for p in candidates 
+            if p.get('color') and p['color'].get('base_color') and p['color']['base_color'].lower() == color_lower
+        ]
+
+    # Apply pagination
+    return candidates[skip : skip + limit]
 
 @router.get("/{slug}", response_model=dict)
 async def get_product(slug: str):
