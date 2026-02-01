@@ -2,21 +2,21 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-from src.ai.consultant import BrickConsultant
+from src.ai.consultant import Consultant
 from config.settings import DATA_DIR, PROJECT_ROOT
 
 router = APIRouter()
-consultant = BrickConsultant()
+consultant = Consultant()
 
 class ChatRequest(BaseModel):
     query: str
     image: Optional[str] = None
     history: Optional[List[dict]] = []
+    sources: Optional[List[str]] = None
 
 class ChatResponse(BaseModel):
     answer: str
     products: Optional[List[dict]] = []
-    simulation_image: Optional[str] = None
 
 @router.post("/", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -24,17 +24,6 @@ async def chat(request: ChatRequest):
     Chat with the AI consultant.
     """
     try:
-        # Get relevant products for context
-        # Note: BrickConsultant.answer handles history internally via storage if user_id is provided,
-        # but here we might want to be stateless or handle session ID.
-        # For now, we'll use a simple wrapper around answer().
-        
-        # We can pass a session_id in headers or body if we want persistent history per user
-        # For now, let's just use a default session or generate one.
-        
-        # Actually, BrickConsultant.answer takes user_id. Let's assume a single user for now or
-        # let the frontend generate a session ID.
-        
         # Handle image if provided
         image_path = None
         if request.image:
@@ -58,34 +47,23 @@ async def chat(request: ChatRequest):
             
             image_path = str(image_path)
 
-        consultant_result = consultant.answer(request.query, image_path=image_path, user_id="api_user")
+        consultant_result = consultant.answer(
+            request.query, 
+            image_path=image_path, 
+            user_id="api_user",
+            sources=request.sources
+        )
         response_text = consultant_result.get("answer", "")
-        simulation_bytes = consultant_result.get("simulation_image")
         
-        simulation_url = None
-        if simulation_bytes:
-            # Save simulation image
-            import uuid
-            gen_dir = PROJECT_ROOT / "brick-catalog" / "public" / "generated"
-            gen_dir.mkdir(parents=True, exist_ok=True)
-            
-            gen_filename = f"simulation_{uuid.uuid4()}.jpg"
-            gen_path = gen_dir / gen_filename
-            with open(gen_path, "wb") as f:
-                f.write(simulation_bytes)
-            
-            simulation_url = f"/generated/{gen_filename}"
-
         # Clean up temp image
         if image_path and os.path.exists(image_path):
             try:
                 # os.remove(image_path)
                 pass 
-            except:
+            except Exception:
                 pass
         
         # Get relevant products for context to display them
-        # Use products returned by answer() if available (e.g. joints), otherwise search
         relevant_products = consultant_result.get("products")
         if not relevant_products:
             relevant_products = consultant.search_products(request.query, n_results=30)
@@ -93,8 +71,8 @@ async def chat(request: ChatRequest):
         # Flatten product structure for frontend
         flattened_products = []
         for r in relevant_products:
-            # If it's already a flat dict (from joints logic), use it directly
-            if 'details' not in r and 'slug' in r:
+            # If it's already a flat dict, use it directly
+            if 'details' not in r:
                  flattened_products.append(r)
                  continue
                  
@@ -103,7 +81,7 @@ async def chat(request: ChatRequest):
                 **details,
                 "slug": r.get('slug'),
                 "distance": r.get('distance'),
-                "vision_confidence": r.get('vision_confidence'),
+                # "vision_confidence": r.get('vision_confidence'),
             }
             if 'details' in flat_product:
                 del flat_product['details']
@@ -111,9 +89,23 @@ async def chat(request: ChatRequest):
         
         return {
             "answer": response_text,
-            "products": flattened_products,
-            "simulation_image": simulation_url
+            "products": flattened_products
         }
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/history/", response_model=List[dict])
+async def get_history(user_id: str = "api_user"):
+    """
+    Get chat history for a user.
+    """
+    raw_history = consultant.storage.get_history(user_id, limit=50)
+    # Format for frontend: role, content (instead of parts)
+    formatted = []
+    for item in raw_history:
+        formatted.append({
+            "role": "user" if item["role"] == "user" else "assistant",
+            "content": item["parts"][0] if item["parts"] else ""
+        })
+    return formatted

@@ -1,8 +1,7 @@
 
 import sqlite3
-import json
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict
 import time
 
 class ChatStorage:

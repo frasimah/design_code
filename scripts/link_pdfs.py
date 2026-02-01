@@ -7,16 +7,15 @@ import json
 from pathlib import Path
 import sys
 
-# Добавляем корень проекта в путь
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-from config.settings import DATA_DIR
-from rich.console import Console
-
-console = Console()
-
 def link_pdfs():
+    project_root = Path(__file__).parent.parent
+    sys.path.insert(0, str(project_root))
+
+    from config.settings import DATA_DIR
+    from rich.console import Console
+
+    console = Console()
+
     catalog_path = DATA_DIR / "processed" / "full_catalog.json"
     pdfs_dir = DATA_DIR / "processed" / "pdfs"
     
@@ -48,11 +47,11 @@ def link_pdfs():
             missing_count += 1
             
     # Сохраняем обновленный каталог
-    console.print(f"[cyan]Сохранение обновленного каталога...[/cyan]")
+    console.print("[cyan]Сохранение обновленного каталога...[/cyan]")
     with open(catalog_path, "w", encoding="utf-8") as f:
         json.dump(catalog, f, ensure_ascii=False, indent=2)
         
-    console.print(f"[bold green]✓ Готово![/bold green]")
+    console.print("[bold green]✓ Готово![/bold green]")
     console.print(f"  Связано продуктов: [green]{linked_count}[/green]")
     console.print(f"  Ожидают парсинга: [yellow]{missing_count}[/yellow]")
     console.print(f"  Каталог обновлен: {catalog_path}")

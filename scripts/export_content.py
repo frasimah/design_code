@@ -1,5 +1,4 @@
 
-import os
 import zipfile
 from pathlib import Path
 import datetime
@@ -19,7 +18,7 @@ def export_content():
         DATA_DIR / "embeddings"
     ]
     
-    print(f"📦 Starting content export...")
+    print("📦 Starting content export...")
     
     count = 0
     with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -42,10 +41,10 @@ def export_content():
                         count += 1
                 print(f"  + {path.relative_to(ROOT_DIR)}/ (recursive)")
 
-    print(f"\n✅ Export complete!")
+    print("\n✅ Export complete!")
     print(f"📁 Archive: {zip_filename}")
     print(f"📄 Files included: {count}")
-    print(f"\nTo restore on server, simply unzip this archive in the project root.")
+    print("\nTo restore on server, simply unzip this archive in the project root.")
 
 if __name__ == "__main__":
     export_content()

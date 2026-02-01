@@ -1,16 +1,28 @@
 # Python
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
 venv/
 .env
 
+# Node.js / Frontend
+node_modules/
+furniture-catalog/node_modules/
+furniture-catalog/.next/
+furniture-catalog/out/
+.npm
+.pnpm-store/
+
 # Content & Data (Exported separately)
 data/
 temp_img/
 output_*.jpg
 *.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
 # Scrapers & parsers (Local utils, not part of deployed app)
 scrape_*.py
@@ -28,14 +40,19 @@ lick_brick_content_*.zip
 
 # OS
 .DS_Store
+Thumbs.db
 
-# Cursor/IDE
+# IDEs
 .idea/
-.vscode/ads/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python Packaging
 eggs/
 .eggs/
 lib/
-!brick-catalog/lib/
 lib64/
 parts/
 sdist/
@@ -51,32 +68,30 @@ ENV/
 env/
 .venv/
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# Environment
+# Environment files
 .env
 .env.local
+.env.production.local
 
-# Data files
+# Data files (keep directory structure)
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
+# RAG Documents (too large for git)
+rag_documents/
+
 # Logs
 *.log
 logs/
-
-# OS
-.DS_Store
-Thumbs.db
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
+.ruff_cache/
+
+# Build artifacts
+products.json
+products_local.json

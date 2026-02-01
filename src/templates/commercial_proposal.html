@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Коммерческое предложение — {{ project_name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Main App Colors */
+            --bg-primary: #ffffff;
+            --bg-secondary: #faf9f5;
+            /* Warm light gray */
+            --text-primary: #141413;
+            --text-secondary: #3d3d3a;
+            --text-muted: #73726c;
+            --border-color: #e2e2e2;
+
+            --font-sans: 'Inter', sans-serif;
+            --radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: #F5F5F5;
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .page {
+                box-shadow: none !important;
+                margin: 0 !important;
+                border: none !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .page-break {
+                page-break-before: always;
+            }
+        }
+
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            background: white;
+            margin: 20px auto;
+            padding: 40px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header-left h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+            margin-bottom: 4px;
+        }
+
+        .project-subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .header-right {
+            text-align: right;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .contact-row {
+            margin-bottom: 2px;
+        }
+
+        /* PRODUCT LIST (1 Column) */
+        .products-list {
+            display: flex;
+            flex-direction: column;
+            gap: 48px;
+            /* Spacing between products */
+            flex-grow: 1;
+        }
+
+        .product-card {
+            break-inside: avoid;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            /* Image width - Content */
+            gap: 32px;
+            align-items: start;
+        }
+
+        /* Image styling */
+        .image-container {
+            width: 100%;
+            aspect-ratio: 4/3;
+            background-color: var(--bg-secondary);
+            border-radius: var(--radius);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            mix-blend-mode: multiply;
+        }
+
+        .product-content {
+            display: flex;
+            flex-direction: column;
+            padding-top: 4px;
+        }
+
+        .product-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            line-height: 1.3;
+        }
+
+        .product-price {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        /* Specs Table - Matching product-gallery-modal.tsx */
+        .specs-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            /* space-y-2 equivalent (modal uses space-y-3 but 8px is tighter for print) */
+            font-size: 13px;
+            /* text-sm equivalent */
+            margin-top: 12px;
+        }
+
+        .spec-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            /* grid-cols-2 */
+            gap: 8px;
+            /* gap-2 */
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            /* border-black/5 (approx 0.05 but slightly darker for print visibility) */
+            padding-bottom: 6px;
+            /* pb-2 */
+            align-items: baseline;
+            page-break-inside: avoid;
+        }
+
+        .spec-label {
+            color: rgba(0, 0, 0, 0.5);
+            /* text-black/50 */
+            font-weight: 400;
+        }
+
+        .spec-value {
+            color: var(--text-primary);
+            font-weight: 500;
+            /* font-medium */
+            text-align: right;
+            /* text-right */
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        /* Remove border from last item if desired, but modal keeps them. */
+        .spec-row:last-child {
+            border-bottom: none;
+        }
+
+        /* FOOTER */
+        .footer {
+            margin-top: auto;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Export Button */
+        .export-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--text-primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 99px;
+            font-family: var(--font-sans);
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <button class="export-btn no-print" onclick="window.print()">Скачать PDF</button>
+
+    {% for page_items in pages %}
+    <div class="page {% if not loop.first %}page-break{% endif %}">
+        {% if loop.first %}
+        <header class="header">
+            <div class="header-left">
+                <h1>{{ project_name }}</h1>
+                <div class="project-subtitle">Коммерческое предложение</div>
+            </div>
+
+            <div class="header-right">
+                <div class="contact-row"><strong>Менеджер:</strong> Екатерина Курчевская</div>
+                <div class="contact-row"><strong>Телефон:</strong> +7 915 010 4799</div>
+                <div class="contact-row"><strong>Email:</strong> e.kurchevskaya@de-co-de.ru</div>
+            </div>
+        </header>
+        {% endif %}
+
+        <div class="products-list">
+            {% for product in page_items %}
+            <article class="product-card">
+                <div class="image-container">
+                    <img src="{{ product.main_image or (product.images[0] if product.images else '') }}"
+                        alt="{{ product.name }}">
+                </div>
+
+                <div class="product-content">
+                    <div class="product-title">{{ product.name }}</div>
+
+                    <div class="product-price">
+                        {% if product.price and product.price is number %}
+                        {{ "{:,.0f}".format(product.price).replace(',', ' ') }}
+                        {% else %}
+                        {{ product.price }}
+                        {% endif %}
+                        {{ product.currency or 'EUR' }}
+                    </div>
+
+                    <div class="specs-container">
+                        {% if product.brand %}
+                        <div class="spec-row">
+                            <span class="spec-label">Бренд</span>
+                            <span class="spec-value">{{ product.brand }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if product.dimensions %}
+                        <div class="spec-row">
+                            <span class="spec-label">Размеры</span>
+                            <span class="spec-value">{{ product.dimensions }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if product.country %}
+                        <div class="spec-row">
+                            <span class="spec-label">Страна</span>
+                            <span class="spec-value">{{ product.country }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if product.article %}
+                        <div class="spec-row">
+                            <span class="spec-label">Артикул</span>
+                            <span class="spec-value">{{ product.article }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if product.material %}
+                        <div class="spec-row">
+                            <span class="spec-label">Материал</span>
+                            <span class="spec-value">{{ product.material }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% set translations = {
+                        'typology': 'Типология',
+                        'designer': 'Дизайнер',
+                        'year': 'Год',
+                        'collection': 'Коллекция',
+                        'weight': 'Вес',
+                        'volume': 'Объем',
+                        'height': 'Высота',
+                        'width': 'Ширина',
+                        'depth': 'Глубина',
+                        'finish': 'Отделка',
+                        'frame': 'Каркас',
+                        'upholstery': 'Обивка',
+                        'color': 'Цвет',
+                        'light source': 'Источник света',
+                        'bulbs included': 'Лампы в комплекте',
+                        'bulb type': 'Тип лампы',
+                        'power': 'Мощность',
+                        'input voltage': 'Напряжение',
+                        'color temperature': 'Цветовая темп.',
+                        'luminous flux': 'Световой поток',
+                        'cable length': 'Длина кабеля',
+                        'switch': 'Выключатель',
+                        'dimmer': 'Диммер',
+                        'ip rating': 'IP класс',
+                        'protection class': 'Класс защиты',
+                        'energy class': 'Энергоэффективность',
+                        'warranty': 'Гарантия',
+                        'certification': 'Сертификация'
+                        } %}
+
+                        {% if product.attributes %}
+                        {% for key, value in product.attributes.items() %}
+                        {% if key|lower not in ['brand', 'dimensions', 'country', 'material', 'article', 'бренд',
+                        'размеры', 'страна', 'материал', 'артикул'] %}
+                        <div class="spec-row">
+                            <span class="spec-label">{{ translations.get(key|lower, key|capitalize) }}</span>
+                            <span class="spec-value">{{ value }}</span>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+
+        <footer class="footer">
+            <div>designcode.ru</div>
+            <div>Страница {{ loop.index }}</div>
+        </footer>
+    </div>
+    {% endfor %}
+</body>
+
+</html>

@@ -1,7 +1,7 @@
 """
-AI модуль для консультанта по кирпичу Vandersanden
+AI модуль для консультанта по мебели
 """
 from .embeddings import BrickEmbeddings
-from .consultant import BrickConsultant
+from .consultant import Consultant
 
-__all__ = ["BrickEmbeddings", "BrickConsultant"]
+__all__ = ["BrickEmbeddings", "Consultant"]

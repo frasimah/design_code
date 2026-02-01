@@ -1,18 +1,19 @@
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.api.routes import products, chat, vision
+from fastapi.staticfiles import StaticFiles
+from config.settings import DATA_DIR, UPLOAD_DIR, PROJECT_ROOT
+from src.api.routes import chat, currency, import_url, products, projects, upload, vision, print_proposal
 
 app = FastAPI(
-    title="Lick Brick API",
-    description="API for Vandersanden brick catalog and AI consultant",
-    version="0.1.0"
+    title="Design Code API",
+    description="API for furniture catalog and AI consultant",
+    version="1.0.0"
 )
 
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For development; restrict in production
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://0.0.0.0:3000", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,6 +23,19 @@ app.add_middleware(
 app.include_router(products.router, prefix="/api/products", tags=["products"])
 app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(vision.router, prefix="/api/search", tags=["search"])
+app.include_router(import_url.router, prefix="/api/import-url", tags=["import"])
+app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
+app.include_router(upload.router, prefix="/api/upload", tags=["upload"])
+app.include_router(currency.router, prefix="/api/currency", tags=["currency"])
+app.include_router(print_proposal.router, prefix="/api/print", tags=["print"])
+
+# Mount static files
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
+# Static files from Design code public folder (if exists)
+STATIC_DIR = PROJECT_ROOT.parent / "Design code" / "public"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.get("/")
 async def root():

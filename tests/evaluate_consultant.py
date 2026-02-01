@@ -5,15 +5,6 @@ import sys
 import time
 from pathlib import Path
 
-# Добавляем пути
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-from src.ai.consultant import BrickConsultant
-from rich.console import Console
-
-console = Console()
-
 TEST_CASES = [
     {
         "id": 1,
@@ -53,6 +44,13 @@ TEST_CASES = [
 ]
 
 def run_evaluation():
+    project_root = Path(__file__).parent.parent
+    sys.path.insert(0, str(project_root))
+
+    from rich.console import Console
+    from src.ai.consultant import BrickConsultant
+
+    console = Console()
     console.print("[bold blue]Запуск оценки AI-консультанта...[/bold blue]\n")
     
     start_init = time.time()

@@ -1,95 +1,413 @@
-# Инструкция по установке Lick Brick
+# 📦 Инструкция по установке Design Code Panel
 
-## Системные требования (Сервер)
-*   **ОС**: Ubuntu 20.04 / 22.04 LTS (рекомендуется)
-*   **CPU**: Минимум 2 vCPU
-*   **RAM**: Минимум 4 ГБ (Рекомендуется 8 ГБ для сборки фронтенда)
-*   **Диск**: 20 ГБ свободного места (SSD)
-*   **Порты**: 8000 (API), 3000 (Frontend), доступ в интернет (для API Google Gemini)
+> **Версия**: 1.0  
+> **Дата обновления**: Февраль 2026
 
-## Требования ПО
-- **Python 3.10+**
-- **Node.js 18+** & **npm**
+---
+
+## 📋 Содержание
+
+1. [Системные требования](#-системные-требования)
+2. [Быстрый старт](#-быстрый-старт)
+3. [Подробная установка](#-подробная-установка)
+4. [Конфигурация](#-конфигурация)
+5. [Импорт контента](#-импорт-контента)
+6. [Запуск в режиме разработки](#-запуск-в-режиме-разработки)
+7. [Продакшн-деплой](#-продакшн-деплой)
+8. [Настройка Nginx](#-настройка-nginx)
+9. [Устранение неполадок](#-устранение-неполадок)
+
+---
+
+## 💻 Системные требования
+
+### Минимальные требования (Сервер)
+
+| Параметр | Значение |
+|----------|----------|
+| **ОС** | Ubuntu 20.04 / 22.04 LTS |
+| **CPU** | 2 vCPU |
+| **RAM** | 4 ГБ (8 ГБ для сборки) |
+| **Диск** | 20 ГБ SSD |
+
+### Открытые порты
+
+| Порт | Назначение |
+|------|------------|
+| `8000` | FastAPI Backend |
+| `3000` | Next.js Frontend |
+| `80/443` | Nginx (для продакшна) |
+
+### Необходимое ПО
+
+- **Python** 3.10+
+- **Node.js** 18+ с npm
 - **Git**
 
-## 1. Клонирование репозитория
+---
+
+## 🚀 Быстрый старт
+
 ```bash
-git clone <repository_url>
-cd lick_brick
+# 1. Клонирование репозитория
+git clone https://github.com/frasimah/design_code.git
+cd design_code
+
+# 2. Бэкенд
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# 3. Фронтенд
+cd furniture-catalog
+npm install
+cd ..
+
+# 4. Конфигурация
+cp .env.example .env
+# Отредактируйте .env и добавьте GEMINI_API_KEY
+
+# 5. Импорт контента (получите архив у администратора)
+unzip lick_brick_content_*.zip
+
+# 6. Запуск
+# Терминал 1:
+uvicorn src.api.server:app --host 0.0.0.0 --port 8000
+
+# Терминал 2:
+cd furniture-catalog && npm run dev
 ```
 
-## 2. Настройка бэкенда (Backend)
-Создайте виртуальное окружение и установите зависимости:
+Приложение доступно: **http://localhost:3000**
+
+---
+
+## 📁 Подробная установка
+
+### 1. Подготовка сервера (Ubuntu)
+
+```bash
+# Обновление системы
+sudo apt update && sudo apt upgrade -y
+
+# Установка Python
+sudo apt install python3 python3-pip python3-venv -y
+
+# Установка Node.js 18+ (через NodeSource)
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install nodejs -y
+
+# Установка дополнительных пакетов
+sudo apt install git unzip nginx -y
+
+# Проверка версий
+python3 --version  # >= 3.10
+node --version     # >= 18.0
+npm --version
+```
+
+### 2. Клонирование репозитория
+
+```bash
+cd /opt  # или другая директория для приложений
+sudo git clone https://github.com/frasimah/design_code.git
+sudo chown -R $USER:$USER design_code
+cd design_code
+```
+
+### 3. Установка зависимостей бэкенда
+
 ```bash
 python3 -m venv venv
-source venv/bin/activate  # На Windows: venv\Scripts\activate
+source venv/bin/activate
+
+# Если требуется прокси для pip:
+# export HTTP_PROXY=socks5://user:pass@host:port
+# export HTTPS_PROXY=socks5://user:pass@host:port
+
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 3. Настройка фронтенда (Frontend)
-Установите зависимости Node.js:
+### 4. Установка зависимостей фронтенда
+
 ```bash
-cd brick-catalog
+cd furniture-catalog
 npm install
 cd ..
 ```
 
-## 4. Импорт контента
-Контент (база данных каталога и AI-индексы) **не** хранится в Git. Вы должны загрузить пакет контента отдельно.
+---
 
-1.  Получите последний архив `lick_brick_content_YYYYMMDD_HHMMSS.zip` у администратора.
-2.  Поместите его в корневую директорию проекта (`lick_brick/`).
-3.  Распакуйте архив:
-    ```bash
-    unzip lick_brick_content_*.zip
-    ```
-    *Убедитесь, что папка `data/` появилась в корне проекта.*
+## ⚙️ Конфигурация
 
-## 5. Конфигурация
-Создайте файл `.env` в корневой директории (скопируйте из примера):
+### Файл `.env`
+
 ```bash
 cp .env.example .env
+nano .env  # или vim .env
 ```
-Отредактируйте `.env` и добавьте ваши ключи:
-```
-GEMINI_API_KEY=ваш_ключ_здесь
-# Если нужен прокси (SOCKS5/HTTP):
+
+**Обязательные параметры:**
+
+```env
+# Google Gemini API (обязательно)
+GEMINI_API_KEY=AIzaSy...ваш_ключ
+
+# Если сервер за прокси:
 GEMINI_PROXY_URL=socks5://login:password@ip:port
 ```
 
-## 6. Запуск приложения
-### Вариант А: Разработка (Два терминала)
-**Терминал 1 (Бэкенд):**
+**Опциональные параметры:**
+
+```env
+# WooCommerce интеграция
+WC_CONSUMER_KEY=ck_xxxxx
+WC_CONSUMER_SECRET=cs_xxxxx
+WC_BASE_URL=https://your-site.ru/wp-json/wc/v3
+
+# Telegram бот
+TELEGRAM_BOT_TOKEN=123456:ABC-xxx
+```
+
+---
+
+## 📥 Импорт контента
+
+> ⚠️ **Важно**: Контент (база данных, изображения, AI-индексы) не хранится в Git.
+
+1. Получите архив `lick_brick_content_YYYYMMDD_HHMMSS.zip` у администратора
+2. Поместите его в корень проекта
+3. Распакуйте:
+
 ```bash
+unzip lick_brick_content_*.zip
+```
+
+**Проверка:**
+```bash
+ls -la data/
+# Должна появиться папка data/ с подпапками
+```
+
+---
+
+## 🔧 Запуск в режиме разработки
+
+### Терминал 1 — Бэкенд
+
+```bash
+cd /opt/design_code
 source venv/bin/activate
 uvicorn src.api.server:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**Терминал 2 (Фронтенд):**
+### Терминал 2 — Фронтенд
+
 ```bash
-cd brick-catalog
+cd /opt/design_code/furniture-catalog
 npm run dev
 ```
-Фронтенд будет доступен по адресу `http://localhost:3000`.
-### Вариант Б: Продакшн (Рекомендуется PM2)
-Мы рекомендуем использовать PM2 для управления процессами:
-```bash
-# Запуск бэкенда
-pm2 start "uvicorn src.api.server:app --host 0.0.0.0 --port 8000" --name lick-backend
 
-# Сборка и запуск фронтенда
-cd brick-catalog
+**Проверка:**
+- Бэкенд API: http://localhost:8000/docs
+- Фронтенд: http://localhost:3000
+
+---
+
+## 🏭 Продакшн-деплой
+
+### Вариант А: PM2 (Рекомендуется)
+
+```bash
+# Установка PM2 глобально
+sudo npm install -g pm2
+
+# Сборка фронтенда
+cd /opt/design_code/furniture-catalog
 npm run build
-pm2 start "npm start" --name lick-frontend
+
+# Запуск бэкенда
+cd /opt/design_code
+pm2 start "venv/bin/uvicorn src.api.server:app --host 127.0.0.1 --port 8000" --name design-backend
+
+# Запуск фронтенда
+cd furniture-catalog
+pm2 start "npm start" --name design-frontend
+
+# Автозапуск при перезагрузке
+pm2 startup
+pm2 save
 ```
 
-## Прокси и Pip
-Если ваш сервер не имеет прямого доступа в интернет и требует SOCKS-прокси даже для установки пакетов (`pip install`), вам необходимо настроить прокси **в терминале** перед установкой:
+**Управление PM2:**
+```bash
+pm2 status          # Статус процессов
+pm2 logs            # Логи в реальном времени
+pm2 restart all     # Перезапуск всех
+pm2 stop all        # Остановка всех
+```
+
+### Вариант Б: Systemd
+
+#### Бэкенд (`/etc/systemd/system/design-backend.service`)
+
+```ini
+[Unit]
+Description=Design Code Backend API
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/design_code
+Environment="PATH=/opt/design_code/venv/bin"
+EnvironmentFile=/opt/design_code/.env
+ExecStart=/opt/design_code/venv/bin/uvicorn src.api.server:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+#### Фронтенд (`/etc/systemd/system/design-frontend.service`)
+
+```ini
+[Unit]
+Description=Design Code Frontend
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/design_code/furniture-catalog
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Активация:**
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable design-backend design-frontend
+sudo systemctl start design-backend design-frontend
+```
+
+---
+
+## 🌐 Настройка Nginx
+
+### Конфигурация (`/etc/nginx/sites-available/design_code`)
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.ru;
+
+    # Frontend (Next.js)
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Backend API
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Увеличенные таймауты для AI запросов
+        proxy_read_timeout 120s;
+        proxy_connect_timeout 60s;
+    }
+
+    # Статические файлы (uploads)
+    location /uploads/ {
+        alias /opt/design_code/data/uploads/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+```
+
+**Активация:**
+```bash
+sudo ln -s /etc/nginx/sites-available/design_code /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### SSL с Certbot (опционально)
 
 ```bash
-export HTTP_PROXY=socks5://user:pass@host:port
-export HTTPS_PROXY=socks5://user:pass@host:port
+sudo apt install certbot python3-certbot-nginx -y
+sudo certbot --nginx -d your-domain.ru
+```
+
+---
+
+## 🔍 Устранение неполадок
+
+### Ошибка: "Module not found"
+
+```bash
+# Убедитесь, что виртуальное окружение активировано
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Настройка в `.env` (описанная выше) влияет только на работу самого приложения (ИИ, запросы), но не на установку библиотек. Мы добавили библиотеку `pysocks`, чтобы приложение корректно работало через SOCKS.
+### Ошибка: "GEMINI_API_KEY not set"
+
+```bash
+# Проверьте наличие .env файла
+cat .env | grep GEMINI
+```
+
+### Фронтенд не запускается
+
+```bash
+cd furniture-catalog
+rm -rf node_modules .next
+npm install
+npm run build
+```
+
+### Проверка логов
+
+```bash
+# PM2
+pm2 logs design-backend --lines 100
+
+# Systemd
+sudo journalctl -u design-backend -f
+```
+
+### Проверка портов
+
+```bash
+sudo netstat -tlnp | grep -E '(3000|8000)'
+```
+
+---
+
+## 📞 Контакты
+
+При возникновении проблем обращайтесь к разработчику.
+
+---
+
+*Документ создан автоматически* | *Design Code Panel v1.0*

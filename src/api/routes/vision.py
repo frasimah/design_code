@@ -1,6 +1,6 @@
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from typing import List, Optional
+from typing import List
 from src.ai.image_search import ImageSearch
 import shutil
 import tempfile
@@ -40,8 +40,10 @@ async def search_by_image(file: UploadFile = File(...)):
                 }
                 
                 # Remove internal objects that might not be serializable or duplicate
-                if "details" in cleaned_r: del cleaned_r["details"]
-                if "product" in cleaned_r: del cleaned_r["product"]
+                if "details" in cleaned_r:
+                    del cleaned_r["details"]
+                if "product" in cleaned_r:
+                    del cleaned_r["product"]
                 
                 cleaned_results.append(cleaned_r)
                 
