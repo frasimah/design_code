@@ -201,7 +201,7 @@ export const api = {
     async deleteSource(sourceId: string, token?: string): Promise<ImportStatus> {
         const headers: HeadersInit = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        
+
         const response = await fetch(`${API_BASE_URL}/products/sources/${sourceId}`, {
             method: 'DELETE',
             headers
@@ -296,7 +296,7 @@ export const api = {
     async uploadImage(file: File, token?: string): Promise<{ url: string }> {
         const formData = new FormData();
         formData.append('file', file);
-        
+
         const headers: HeadersInit = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -341,6 +341,19 @@ export const api = {
             clearTimeout(timeoutId);
             throw error;
         }
+    },
+
+    async printProject(slug: string, token?: string): Promise<string> {
+        const headers: HeadersInit = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`${API_BASE_URL}/print/${slug}`, { headers });
+        if (!res.ok) {
+            if (res.status === 401) throw new Error("Unauthorized");
+            const error = await res.json().catch(() => ({}));
+            throw new Error(error.detail || 'Failed to generate proposal');
+        }
+        return res.text();
     }
 };
 

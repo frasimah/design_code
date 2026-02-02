@@ -324,15 +324,27 @@ Format: {{ "indices": [0, 2, ...] }}
 
         # Clean up response (remove JSON block if present)
         clean_response = response_text
+        
+        # 1. Try generic code block removal
         if "```json" in clean_response:
              clean_response = clean_response.split("```json")[0].strip()
         elif "```" in clean_response:
-             # Try to find the last block
              parts = clean_response.split("```")
              if len(parts) >= 3:
-                 # Usually text ```json ... ``` text
-                 # We want the text before the json
                  clean_response = parts[0].strip()
+                 
+        # 2. Aggressive fallback: cleanup raw JSON if it leaked without backticks
+        # Look for the specific pattern we asked for: "recommended_slugs"
+        # We assume the JSON is at the end of the message
+        import re
+        # This regex looks for { "recommended_slugs": ... } at the end of string
+        # using dotall to capture multi-line JSON
+        json_pattern = r'\{\s*"recommended_slugs"\s*:.*?\}\s*$'
+        
+        match = re.search(json_pattern, clean_response, re.DOTALL)
+        if match:
+            # Found it at the end, cut it off
+            clean_response = clean_response[:match.start()].strip()
         
         self.storage.add_message(user_id, "user", query)
         self.storage.add_message(user_id, "model", response_text) # Save full response with JSON for debugging/future use

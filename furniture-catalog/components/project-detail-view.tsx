@@ -1,6 +1,6 @@
 "use client";
 
-import { Product } from "@/lib/api";
+import { Product, api } from "@/lib/api";
 import { ArrowLeft, MoreHorizontal, Share, ArrowDownUp, Plus } from "lucide-react";
 import { Button } from "./ui/button";
 import { ProductCard } from "./product-card";
@@ -69,23 +69,8 @@ export function ProjectDetailView({ project, onBack, onProductClick, onRemoveIte
                             onClick={async () => {
                                 const slug = project.slug || project.id;
                                 try {
-                                    const headers: HeadersInit = {};
-                                    if (accessToken) {
-                                        headers['Authorization'] = `Bearer ${accessToken}`;
-                                    }
+                                    const html = await api.printProject(slug, accessToken);
 
-                                    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-                                    const response = await fetch(`${apiBaseUrl}/api/print/${slug}`, { headers });
-
-                                    if (!response.ok) {
-                                        if (response.status === 401) {
-                                            alert("Пожалуйста, авторизуйтесь для печати КП");
-                                            return;
-                                        }
-                                        throw new Error("Failed to load PDF preview");
-                                    }
-
-                                    const html = await response.text();
                                     const win = window.open('', '_blank');
                                     if (win) {
                                         win.document.write(html);
@@ -93,9 +78,13 @@ export function ProjectDetailView({ project, onBack, onProductClick, onRemoveIte
                                     } else {
                                         alert("Разрешите всплывающие окна для просмотра КП");
                                     }
-                                } catch (error) {
+                                } catch (error: any) {
                                     console.error("Print error:", error);
-                                    alert("Ошибка при формировании КП");
+                                    if (error.message === "Unauthorized") {
+                                        alert("Пожалуйста, авторизуйтесь для печати КП");
+                                    } else {
+                                        alert("Ошибка при формировании КП: " + (error.message || "Unknown error"));
+                                    }
                                 }
                             }}
                         >
