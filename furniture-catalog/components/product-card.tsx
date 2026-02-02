@@ -23,19 +23,21 @@ interface ProductCardProps {
     onDelete?: (product: Product) => void;
     currencyMode?: 'original' | 'rub';
     exchangeRate?: number;
+    accessToken?: string;
 }
 
-export function ProductCard({
-    product,
-    onClick,
-    onSave,
-    onDelete,
-    className,
-    viewMode = 'grid',
+export function ProductCard({ 
+    product, 
+    onClick, 
+    onSave, 
+    className, 
+    viewMode = 'grid', 
     visibleColumns = { photo: true, name: true, dimensions: true, materials: true, price: true },
     actionMode = 'save',
+    onDelete,
     currencyMode = 'original',
-    exchangeRate = 0
+    exchangeRate = 0,
+    accessToken
 }: ProductCardProps) {
     const [isEditingPrice, setIsEditingPrice] = useState(false);
     const [editPrice, setEditPrice] = useState<string>("");
@@ -56,10 +58,10 @@ export function ProductCard({
 
         try {
             // 1. Upload image
-            const { url } = await api.uploadImage(file);
+            const { url } = await api.uploadImage(file, accessToken);
 
             // 2. Update product
-            await api.updateProductImage(product.slug || '', url);
+            await api.updateProductImage(product.slug || '', url, accessToken);
 
             // 3. Update local state
             setLocalImage(url);
@@ -86,7 +88,7 @@ export function ProductCard({
                 return;
             }
 
-            await api.updateProductPrice(product.slug || '', val, localPrice.currency);
+            await api.updateProductPrice(product.slug || '', val, localPrice.currency, accessToken);
 
             setLocalPrice({ ...localPrice, value: val });
             setIsEditingPrice(false);
@@ -155,7 +157,7 @@ export function ProductCard({
         if (confirm(`Вы уверены, что хотите удалить товар "${title}"?`)) {
             try {
                 // Call API
-                await api.deleteProduct(product.slug || "");
+                await api.deleteProduct(product.slug || "", accessToken);
                 setIsDeleted(true);
             } catch (err) {
                 console.error("Failed to delete product", err);

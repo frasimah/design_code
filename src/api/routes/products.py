@@ -293,18 +293,34 @@ async def import_catalog(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/sources/{source_id}", response_model=ImportStatus)
-async def delete_source(source_id: str):
+async def delete_source(source_id: str, user: dict = Depends(get_current_user)):
     """Delete a custom JSON catalog"""
+    if not user or not user.get("id"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+        
     # Protect core sources
     if source_id in ['catalog', 'woocommerce']:
         raise HTTPException(status_code=403, detail="Cannot delete core sources")
     
+    # Check ownership for custom catalogs
+    config = get_sources_config()
+    source_meta = config.get(f"_meta_{source_id}", {})
+    source_owner = source_meta.get("user_id")
+    
+    if source_owner and source_owner != user["id"]:
+        raise HTTPException(status_code=403, detail="You do not own this source")
+
     target_path = CUSTOM_CATALOGS_DIR / f"{source_id}.json"
     if not target_path.exists():
         raise HTTPException(status_code=404, detail="Source not found")
     
     try:
         os.remove(target_path)
+        
+        # Remove from config
+        if f"_meta_{source_id}" in config:
+            del config[f"_meta_{source_id}"]
+        save_sources_config(config)
         
         # 1. Refresh global cache
         global catalog_data, catalog_dict
@@ -322,8 +338,11 @@ class RenameSourceRequest(BaseModel):
     name: str
 
 @router.put("/sources/{source_id}/rename", response_model=ImportStatus)
-async def rename_source(source_id: str, request: RenameSourceRequest):
+async def rename_source(source_id: str, request: RenameSourceRequest, user: dict = Depends(get_current_user)):
     """Rename a custom JSON catalog or core source"""
+    if not user or not user.get("id"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     # Handle core sources
     if source_id in ['catalog', 'woocommerce']:
         try:
@@ -334,6 +353,14 @@ async def rename_source(source_id: str, request: RenameSourceRequest):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
     
+    # Check ownership for custom catalogs
+    config = get_sources_config()
+    source_meta = config.get(f"_meta_{source_id}", {})
+    source_owner = source_meta.get("user_id")
+    
+    if source_owner and source_owner != user["id"]:
+        raise HTTPException(status_code=403, detail="You do not own this source")
+
     current_path = CUSTOM_CATALOGS_DIR / f"{source_id}.json"
     if not current_path.exists():
         raise HTTPException(status_code=404, detail="Source not found")
@@ -349,20 +376,17 @@ async def rename_source(source_id: str, request: RenameSourceRequest):
         # Rename file
         current_path.rename(new_path)
         
+        # Update config metadata
+        if f"_meta_{source_id}" in config:
+            meta = config.pop(f"_meta_{source_id}")
+            meta["name"] = request.name
+            config[f"_meta_{new_id}"] = meta
+            save_sources_config(config)
+        
         # 1. Refresh global cache
         global catalog_data, catalog_dict
         catalog_data = get_catalog()
         catalog_dict = {p['slug']: p for p in catalog_data if p.get('slug')}
-        
-        # 2. Re-index embeddings (delete old by re-indexing full catalog?)
-        # Since we use slug as ID in Chroma, and slug usually doesn't change if we just rename source FILE.
-        # BUT product['source'] might be linked to filename if we parse it dynamically? 
-        # In get_catalog logic: 
-        # for p in CUSTOM_CATALOGS_DIR.glob("*.json"):
-        #    source_name = p.stem
-        #    item['source'] = source_name 
-        # YES, source field depends on filename. So we essentially "moved" products to new source.
-        # We need to re-index.
         
         embeddings.index_catalog(products_list=catalog_data, force_reindex=False)
         
@@ -375,13 +399,24 @@ class UpdatePriceRequest(BaseModel):
     currency: str = "EUR"
 
 @router.put("/{slug}/price")
-async def update_price(slug: str, request: UpdatePriceRequest):
+async def update_price(slug: str, request: UpdatePriceRequest, user: dict = Depends(get_current_user)):
     """Update price for a specific product"""
+    if not user or not user.get("id"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     if slug not in catalog_dict:
         raise HTTPException(status_code=404, detail="Product not found")
     
     product = catalog_dict[slug]
     source = product.get('source', 'catalog')
+    
+    # Ownership check for custom sources
+    if source not in ['catalog', 'woocommerce']:
+        config = get_sources_config()
+        source_meta = config.get(f"_meta_{source}", {})
+        source_owner = source_meta.get("user_id")
+        if source_owner and source_owner != user["id"]:
+            raise HTTPException(status_code=403, detail="You do not own this product's source")
     
     # Identify target file
     target_file = None
@@ -441,13 +476,24 @@ async def update_price(slug: str, request: UpdatePriceRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{slug}")
-async def delete_product(slug: str):
+async def delete_product(slug: str, user: dict = Depends(get_current_user)):
     """Delete a specific product"""
+    if not user or not user.get("id"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+        
     if slug not in catalog_dict:
         raise HTTPException(status_code=404, detail="Product not found")
     
     product = catalog_dict[slug]
     source = product.get('source', 'catalog')
+    
+    # Ownership check for custom sources
+    if source not in ['catalog', 'woocommerce']:
+        config = get_sources_config()
+        source_meta = config.get(f"_meta_{source}", {})
+        source_owner = source_meta.get("user_id")
+        if source_owner and source_owner != user["id"]:
+            raise HTTPException(status_code=403, detail="You do not own this product's source")
     
     # Identify target file
     target_file = None
@@ -456,12 +502,6 @@ async def delete_product(slug: str):
     elif source == 'woocommerce':
         target_file = DATA_DIR / "processed" / "full_catalog.json"
     else:
-        # Custom source: Since our get_catalog() logic sets source = p.stem,
-        # we can reconstruct the path. 
-        # BUT wait, the core source rename logic introduced config overrides for names.
-        # But `product['source']` in `catalog_dict` comes from `p.stem` see line 118 in original products.py (or similar).
-        # "source_name = p.stem".
-        # So it is safe to assume `source` is the filename stem.
         target_file = CUSTOM_CATALOGS_DIR / f"{source}.json"
         
     if not target_file.exists():
@@ -770,7 +810,11 @@ class UpdateImageRequest(BaseModel):
     image_url: str
 
 @router.put("/{slug}/image")
-async def update_product_image(slug: str, request: UpdateImageRequest):
+async def update_product_image(slug: str, request: UpdateImageRequest, user: dict = Depends(get_current_user)):
+    """Update a product's image"""
+    if not user or not user.get("id"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     new_image_url = request.image_url
     
     # Validation loop similar to price update
@@ -779,6 +823,14 @@ async def update_product_image(slug: str, request: UpdateImageRequest):
         raise HTTPException(status_code=404, detail="Product not found")
 
     source_id = product.get('source', 'catalog')
+    
+    # Ownership check for custom sources
+    if source_id not in ['catalog', 'woocommerce']:
+        config = get_sources_config()
+        source_meta = config.get(f"_meta_{source_id}", {})
+        source_owner = source_meta.get("user_id")
+        if source_owner and source_owner != user["id"]:
+            raise HTTPException(status_code=403, detail="You do not own this product's source")
     
     # Determine file path
     file_path = None

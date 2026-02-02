@@ -8,7 +8,7 @@ NextAuth v4+ uses JWE with:
 - Key derivation: HKDF with SHA256
 """
 
-from fastapi import Depends, HTTPException, Header
+from fastapi import Depends, HTTPException, Header, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 import os
@@ -71,6 +71,7 @@ def _decrypt_nextauth_token(token: str) -> Optional[dict]:
 
 
 async def get_current_user(
+    request: Request,
     authorization: Optional[str] = Header(None, alias="Authorization"),
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> Optional[dict]:
@@ -80,6 +81,11 @@ async def get_current_user(
     """
     token = None
     
+    # Debug log for investigation
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        print(f"[JWT DEBUG] No Authorization header in request to {request.url.path}. Headers: {dict(request.headers)}")
+    
     # Try to get token from either source
     if credentials:
         token = credentials.credentials
@@ -87,7 +93,10 @@ async def get_current_user(
         token = authorization[7:]
     
     if not token:
-        print("[JWT DEBUG] No token found in request")
+        # Don't print "No token" for common GET requests to avoid log noise, 
+        # but keep it for POST/PUT/DELETE which usually require auth
+        if request.method != "GET":
+            print(f"[JWT DEBUG] No token found in {request.method} request to {request.url.path}")
         return None
     
     # Decrypt the JWE token

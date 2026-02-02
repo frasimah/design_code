@@ -1,5 +1,6 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from config.settings import UPLOAD_DIR
+from src.api.auth.jwt import get_current_user
 import uuid
 import os
 import mimetypes
@@ -7,7 +8,10 @@ import mimetypes
 router = APIRouter()
 
 @router.post("/image")
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    if not user or not user.get("id"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+        
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files are allowed")
     

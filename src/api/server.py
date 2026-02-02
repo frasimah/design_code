@@ -20,7 +20,8 @@ app.add_middleware(
         "http://127.0.0.1:3001",
         "https://panel.de-co-de.ru",
         "http://panel.de-co-de.ru",
-        "*"
+        "https://de-co-de.ru",
+        "http://de-co-de.ru"
     ],
     allow_credentials=True,
     allow_methods=["*"],

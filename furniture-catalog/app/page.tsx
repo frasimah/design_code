@@ -236,7 +236,7 @@ export default function Home() {
   const handleDeleteSource = async (sourceId: string) => {
     if (confirm(`Вы уверены, что хотите удалить источник "${sourceId}"?`)) {
       try {
-        await api.deleteSource(sourceId);
+        await api.deleteSource(sourceId, accessToken);
         const updatedSources = await api.getSources(accessToken);
         setAvailableSources(updatedSources);
         if (activeSource === sourceId) setActiveSource(null);
@@ -249,7 +249,7 @@ export default function Home() {
 
   const handleRenameSource = async (sourceId: string, newName: string) => {
     try {
-      await api.renameSource(sourceId, newName);
+      await api.renameSource(sourceId, newName, accessToken);
       const updatedSources = await api.getSources(accessToken);
       setAvailableSources(updatedSources);
       if (activeSource === sourceId) setActiveSource(null);

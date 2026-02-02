@@ -444,6 +444,7 @@ export function MaterialsView({
                                             visibleColumns={visibleColumns}
                                             currencyMode={currencyMode}
                                             exchangeRate={exchangeRate}
+                                            accessToken={accessToken}
                                         />
                                     </div>
                                 ))}

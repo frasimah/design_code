@@ -198,9 +198,13 @@ export const api = {
         return response.json();
     },
 
-    async deleteSource(sourceId: string): Promise<ImportStatus> {
+    async deleteSource(sourceId: string, token?: string): Promise<ImportStatus> {
+        const headers: HeadersInit = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        
         const response = await fetch(`${API_BASE_URL}/products/sources/${sourceId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers
         });
         if (!response.ok) {
             const error = await response.json();
@@ -209,10 +213,13 @@ export const api = {
         return response.json();
     },
 
-    async renameSource(sourceId: string, name: string): Promise<ImportStatus> {
+    async renameSource(sourceId: string, name: string, token?: string): Promise<ImportStatus> {
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const response = await fetch(`${API_BASE_URL}/products/sources/${sourceId}/rename`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ name })
         });
         if (!response.ok) {
@@ -222,10 +229,13 @@ export const api = {
         return response.json();
     },
 
-    async updateProductPrice(slug: string, price: number, currency: string = "EUR"): Promise<UpdatePriceResponse> {
+    async updateProductPrice(slug: string, price: number, currency: string = "EUR", token?: string): Promise<UpdatePriceResponse> {
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const response = await fetch(`${API_BASE_URL}/products/${slug}/price`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ price, currency })
         });
         if (!response.ok) {
@@ -235,10 +245,13 @@ export const api = {
         return response.json();
     },
 
-    async updateProductImage(slug: string, imageUrl: string): Promise<UpdateImageResponse> {
+    async updateProductImage(slug: string, imageUrl: string, token?: string): Promise<UpdateImageResponse> {
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const response = await fetch(`${API_BASE_URL}/products/${slug}/image`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ image_url: imageUrl })
         });
         if (!response.ok) {
@@ -248,9 +261,13 @@ export const api = {
         return response.json();
     },
 
-    async deleteProduct(slug: string): Promise<DeleteProductResponse> {
+    async deleteProduct(slug: string, token?: string): Promise<DeleteProductResponse> {
+        const headers: HeadersInit = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const response = await fetch(`${API_BASE_URL}/products/${slug}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers
         });
         if (!response.ok) {
             const error = await response.json();
@@ -276,11 +293,16 @@ export const api = {
         return url;
     },
 
-    async uploadImage(file: File): Promise<{ url: string }> {
+    async uploadImage(file: File, token?: string): Promise<{ url: string }> {
         const formData = new FormData();
         formData.append('file', file);
+        
+        const headers: HeadersInit = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const res = await fetch(`${API_BASE_URL}/upload/image`, {
             method: 'POST',
+            headers,
             body: formData
         });
         if (!res.ok) throw new Error('Upload failed');

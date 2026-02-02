@@ -256,6 +256,7 @@ export function ChatView({
                                             products={block.products}
                                             onProductClick={onProductClick}
                                             onSave={onSaveProduct}
+                                            accessToken={accessToken}
                                         />
                                     </div>
                                 ))}

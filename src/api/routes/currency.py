@@ -28,7 +28,8 @@ async def get_currency_rate():
                 if response.status != 200:
                     raise HTTPException(status_code=502, detail="Failed to fetch rates from CBR")
                 
-                data = await response.json()
+                # Use content_type=None because CBR serves JSON with application/javascript mimetype
+                data = await response.json(content_type=None)
                 # Extract EUR rate
                 eur_rate = data.get("Valute", {}).get("EUR", {}).get("Value")
                 

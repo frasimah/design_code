@@ -150,6 +150,7 @@ export function ProjectDetailView({ project, onBack, onProductClick, onRemoveIte
                                 onClick={onProductClick}
                                 actionMode="delete"
                                 onDelete={(p) => setItemToDelete(p)}
+                                accessToken={accessToken}
                             />
                         </div>
                     ))}

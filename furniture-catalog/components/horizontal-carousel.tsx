@@ -10,9 +10,10 @@ interface HorizontalCarouselProps {
     products: Product[];
     onProductClick?: (product: Product) => void;
     onSave?: (product: Product) => void;
+    accessToken?: string;
 }
 
-export function HorizontalCarousel({ products, onProductClick, onSave }: HorizontalCarouselProps) {
+export function HorizontalCarousel({ products, onProductClick, onSave, accessToken }: HorizontalCarouselProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [showLeftArrow, setShowLeftArrow] = useState(false);
 
@@ -67,6 +68,7 @@ export function HorizontalCarousel({ products, onProductClick, onSave }: Horizon
                         onClick={onProductClick}
                         onSave={onSave}
                         className="w-[220px] md:w-[260px] shrink-0"
+                        accessToken={accessToken}
                     />
                 ))}
             </div>
