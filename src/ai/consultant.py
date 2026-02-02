@@ -320,7 +320,7 @@ Format: {{ "indices": [0, 2, ...] }}
                 if slug in relevant_map:
                     final_products.append(relevant_map[slug])
         else:
-             final_products = relevant
+             final_products = [] # Strict mode: do not show products if not explicitly recommended
 
         # Clean up response (remove JSON block if present)
         clean_response = response_text

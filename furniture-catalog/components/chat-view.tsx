@@ -243,15 +243,17 @@ export function ChatView({
 
                                 {msg.blocks?.map((block, bIdx) => (
                                     <div key={bIdx} className="w-full mt-2 select-none">
-                                        <div className="flex items-center justify-between mb-4 px-1">
-                                            <div className="text-[13px] font-medium text-[#141413] flex items-center gap-2 border border-[#1f1e1d1a] bg-white rounded-md px-2 py-1 shadow-sm">
-                                                <span className="font-bold">🧱</span>
-                                                {block.title}
+                                        {block.title && (
+                                            <div className="flex items-center justify-between mb-4 px-1">
+                                                <div className="text-[13px] font-medium text-[#141413] flex items-center gap-2 border border-[#1f1e1d1a] bg-white rounded-md px-2 py-1 shadow-sm">
+                                                    <span className="font-bold">🧱</span>
+                                                    {block.title}
+                                                </div>
+                                                <div className="flex gap-2 opacity-40 hover:opacity-100 transition-opacity">
+                                                    <Code2 className="h-4 w-4 cursor-pointer" />
+                                                </div>
                                             </div>
-                                            <div className="flex gap-2 opacity-40 hover:opacity-100 transition-opacity">
-                                                <Code2 className="h-4 w-4 cursor-pointer" />
-                                            </div>
-                                        </div>
+                                        )}
                                         <HorizontalCarousel
                                             products={block.products}
                                             onProductClick={onProductClick}

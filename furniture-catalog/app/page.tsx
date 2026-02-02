@@ -384,7 +384,7 @@ export default function Home() {
       if (response.products && response.products.length > 0) {
         assistantMsg.blocks = [{
           type: "app",
-          title: "Рекомендованная мебель",
+          title: "",
           view: "carousel",
           products: response.products
         }];
