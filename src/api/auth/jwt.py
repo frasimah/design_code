@@ -92,6 +92,15 @@ async def get_current_user(
     elif authorization and authorization.startswith("Bearer "):
         token = authorization[7:]
     
+    # NEW: Try to get token from NextAuth cookies if header is missing
+    # This is useful when the frontend is on the same domain and headers might be stripped
+    if not token:
+        # Check both secure and non-secure cookie names
+        token = request.cookies.get("__Secure-next-auth.session-token") or \
+                request.cookies.get("next-auth.session-token")
+        if token:
+            print(f"[JWT DEBUG] Found token in cookie for {request.url.path}")
+    
     if not token:
         # Don't print "No token" for common GET requests to avoid log noise, 
         # but keep it for POST/PUT/DELETE which usually require auth
