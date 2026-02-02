@@ -74,7 +74,8 @@ export function ProjectDetailView({ project, onBack, onProductClick, onRemoveIte
                                         headers['Authorization'] = `Bearer ${accessToken}`;
                                     }
 
-                                    const response = await fetch(`http://localhost:8000/api/print/${slug}`, { headers });
+                                    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+                                    const response = await fetch(`${apiBaseUrl}/api/print/${slug}`, { headers });
 
                                     if (!response.ok) {
                                         if (response.status === 401) {

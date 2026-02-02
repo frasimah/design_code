@@ -1,5 +1,5 @@
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api';
 
 // Helper to get auth headers if token is available
 function getAuthHeaders(token?: string): HeadersInit {
@@ -282,7 +282,7 @@ export const api = {
         if (!res.ok) throw new Error('Upload failed');
         const data = await res.json();
         // Return full URL by prepending base if needed, currently server returns /uploads/uuid.ext relative to root
-        return { url: `${'http://localhost:8000'}${data.url}` };
+        return { url: `${API_BASE_URL.replace('/api', '')}${data.url}` };
     },
 
     async getProfile(token?: string): Promise<UserProfile> {

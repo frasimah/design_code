@@ -34,8 +34,8 @@
 
 | Порт | Назначение |
 |------|------------|
-| `8000` | FastAPI Backend |
-| `3000` | Next.js Frontend |
+| `8001` | FastAPI Backend (изменено с 8000) |
+| `3001` | Next.js Frontend (изменено с 3000) |
 | `80/443` | Nginx (для продакшна) |
 
 ### Необходимое ПО
@@ -46,206 +46,71 @@
 
 ---
 
-## 🚀 Быстрый старт
+## 🚀 Быстрый старт (Production с PM2)
 
 ```bash
 # 1. Клонирование репозитория
 git clone https://github.com/frasimah/design_code.git
 cd design_code
 
-# 2. Бэкенд
+# 2. Настройка Бэкенда
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# 3. Фронтенд
+# 3. Настройка Фронтенда
 cd furniture-catalog
 npm install
+# Сборка с указанием URL API
+NEXT_PUBLIC_API_URL=https://domain.com npm run build
 cd ..
 
 # 4. Конфигурация
 cp .env.example .env
-# Отредактируйте .env и добавьте GEMINI_API_KEY
+# Отредактируйте .env и добавьте GEMINI_API_KEY и другие креды
 
-# 5. Импорт контента (получите архив у администратора)
-unzip lick_brick_content_*.zip
-
-# 6. Запуск
-# Терминал 1:
-uvicorn src.api.server:app --host 0.0.0.0 --port 8000
-
-# Терминал 2:
-cd furniture-catalog && npm run dev
-```
-
-Приложение доступно: **http://localhost:3000**
-
----
-
-## 📁 Подробная установка
-
-### 1. Подготовка сервера (Ubuntu)
-
-```bash
-# Обновление системы
-sudo apt update && sudo apt upgrade -y
-
-# Установка Python
-sudo apt install python3 python3-pip python3-venv -y
-
-# Установка Node.js 18+ (через NodeSource)
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt install nodejs -y
-
-# Установка дополнительных пакетов
-sudo apt install git unzip nginx -y
-
-# Проверка версий
-python3 --version  # >= 3.10
-node --version     # >= 18.0
-npm --version
-```
-
-### 2. Клонирование репозитория
-
-```bash
-cd /opt  # или другая директория для приложений
-sudo git clone https://github.com/frasimah/design_code.git
-sudo chown -R $USER:$USER design_code
-cd design_code
-```
-
-### 3. Установка зависимостей бэкенда
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-
-# Если требуется прокси для pip:
-# export HTTP_PROXY=socks5://user:pass@host:port
-# export HTTPS_PROXY=socks5://user:pass@host:port
-
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-### 4. Установка зависимостей фронтенда
-
-```bash
-cd furniture-catalog
-npm install
-cd ..
-```
-
----
-
-## ⚙️ Конфигурация
-
-### Файл `.env`
-
-```bash
-cp .env.example .env
-nano .env  # или vim .env
-```
-
-**Обязательные параметры:**
-
-```env
-# Google Gemini API (обязательно)
-GEMINI_API_KEY=AIzaSy...ваш_ключ
-
-# Если сервер за прокси:
-GEMINI_PROXY_URL=socks5://login:password@ip:port
-```
-
-**Опциональные параметры:**
-
-```env
-# WooCommerce интеграция
-WC_CONSUMER_KEY=ck_xxxxx
-WC_CONSUMER_SECRET=cs_xxxxx
-WC_BASE_URL=https://your-site.ru/wp-json/wc/v3
-
-# Telegram бот
-TELEGRAM_BOT_TOKEN=123456:ABC-xxx
-```
-
----
-
-## 📥 Импорт контента
-
-> ⚠️ **Важно**: Контент (база данных, изображения, AI-индексы) не хранится в Git.
-
-1. Получите архив `lick_brick_content_YYYYMMDD_HHMMSS.zip` у администратора
-2. Поместите его в корень проекта
-3. Распакуйте:
-
-```bash
-unzip lick_brick_content_*.zip
-```
-
-**Проверка:**
-```bash
-ls -la data/
-# Должна появиться папка data/ с подпапками
-```
-
----
-
-## 🔧 Запуск в режиме разработки
-
-### Терминал 1 — Бэкенд
-
-```bash
-cd /opt/design_code
-source venv/bin/activate
-uvicorn src.api.server:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Терминал 2 — Фронтенд
-
-```bash
-cd /opt/design_code/furniture-catalog
-npm run dev
-```
-
-**Проверка:**
-- Бэкенд API: http://localhost:8000/docs
-- Фронтенд: http://localhost:3000
-
----
-
-## 🏭 Продакшн-деплой
-
-### Вариант А: PM2 (Рекомендуется)
-
-```bash
-# Установка PM2 глобально
+# 5. Запуск через PM2
 sudo npm install -g pm2
-
-# Сборка фронтенда
-cd /opt/design_code/furniture-catalog
-npm run build
-
-# Запуск бэкенда
-cd /opt/design_code
-pm2 start "venv/bin/uvicorn src.api.server:app --host 127.0.0.1 --port 8000" --name design-backend
-
-# Запуск фронтенда
-cd furniture-catalog
-pm2 start "npm start" --name design-frontend
-
-# Автозапуск при перезагрузке
-pm2 startup
+pm2 start ecosystem.config.js
 pm2 save
 ```
 
-**Управление PM2:**
+---
+
+## 🏭 Управление через PM2
+
+Для удобства управления всеми частями проекта используется файл `ecosystem.config.js`.
+
 ```bash
-pm2 status          # Статус процессов
-pm2 logs            # Логи в реальном времени
-pm2 restart all     # Перезапуск всех
-pm2 stop all        # Остановка всех
+pm2 status          # Посмотреть статус всех процессов
+pm2 logs            # Просмотр логов в реальном времени
+pm2 restart all     # Перезагрузить проект
+pm2 stop all        # Остановить проект
+```
+
+### Настройка автозапуска при перезагрузке сервера:
+```bash
+pm2 startup
+# Выполните команду, которую предложит PM2
+pm2 save
+```
+
+---
+
+## 🔧 Запуск в режиме разработки (Manual)
+
+Если вам нужно запустить проект вручную для отладки:
+
+### Терминал 1 — Бэкенд
+```bash
+source venv/bin/activate
+uvicorn src.api.server:app --reload --host 0.0.0.0 --port 8001
+```
+
+### Терминал 2 — Фронтенд
+```bash
+cd furniture-catalog
+npm run dev
 ```
 
 ### Вариант Б: Systemd
@@ -263,7 +128,7 @@ Group=www-data
 WorkingDirectory=/opt/design_code
 Environment="PATH=/opt/design_code/venv/bin"
 EnvironmentFile=/opt/design_code/.env
-ExecStart=/opt/design_code/venv/bin/uvicorn src.api.server:app --host 127.0.0.1 --port 8000
+ExecStart=/opt/design_code/venv/bin/uvicorn src.api.server:app --host 127.0.0.1 --port 8001
 Restart=always
 RestartSec=5
 
@@ -306,11 +171,11 @@ sudo systemctl start design-backend design-frontend
 ```nginx
 server {
     listen 80;
-    server_name your-domain.ru;
+    server_name panel.de-co-de.ru;
 
     # Frontend (Next.js)
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -323,7 +188,7 @@ server {
 
     # Backend API
     location /api/ {
-        proxy_pass http://127.0.0.1:8000/api/;
+        proxy_pass http://127.0.0.1:8001/api/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -355,7 +220,7 @@ sudo systemctl reload nginx
 
 ```bash
 sudo apt install certbot python3-certbot-nginx -y
-sudo certbot --nginx -d your-domain.ru
+sudo certbot --nginx -d panel.de-co-de.ru
 ```
 
 ---
@@ -399,7 +264,7 @@ sudo journalctl -u design-backend -f
 ### Проверка портов
 
 ```bash
-sudo netstat -tlnp | grep -E '(3000|8000)'
+sudo netstat -tlnp | grep -E '(3001|8001)'
 ```
 
 ---

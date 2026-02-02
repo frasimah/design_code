@@ -66,12 +66,18 @@ cd furniture-catalog && npm install && cd ..
 cp .env.example .env
 # Добавьте GEMINI_API_KEY в .env
 
-# Запуск (два терминала)
-uvicorn src.api.server:app --port 8000
+# Запуск через PM2 (Рекомендуется)
+pm2 start ecosystem.config.js
+
+# Или ручной запуск (два терминала)
+# Терминал 1:
+uvicorn src.api.server:app --port 8001
+# Терминал 2:
 cd furniture-catalog && npm run dev
 ```
 
 Подробная инструкция: [INSTALL.md](./INSTALL.md)
+Доступно по адресу: **panel.de-co-de.ru** (в продакшне) или **localhost:3001** (локально)
 
 ## ⚙️ Технологии
 

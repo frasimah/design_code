@@ -15,6 +15,8 @@ parsel>=1.8.0
 fastapi>=0.110.0
 uvicorn[standard]>=0.27.0
 python-multipart>=0.0.9
+jwcrypto>=1.5.0
+cryptography>=42.0.0
 
 # Async support
 aiohttp>=3.9.0
@@ -39,6 +41,8 @@ tqdm>=4.66.0
 
 # Export
 openpyxl>=3.1.0  # Excel export
+jinja2>=3.1.0
+pdfkit>=1.0.0
 
 # Development
 pytest>=7.4.0
