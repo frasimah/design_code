@@ -136,14 +136,19 @@ export function MaterialsView({
                 }
             } catch (error) {
                 console.error("Failed to fetch products:", error);
+                // Stop trying to load more if we hit an error to prevent infinite loop
+                if (active) setHasMore(false);
             } finally {
                 if (active) setLoading(false);
             }
         }
 
-        fetchProducts();
+        if (hasMore) {
+            fetchProducts();
+        }
 
         return () => { active = false; };
+        // Only trigger on filter changes or page increment, NOT on 'hasMore' alone to avoid loops
     }, [debouncedQuery, selectedCategory, selectedSources, page, activeSort, selectedBrands]);
 
     // Categories State
