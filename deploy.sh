@@ -1,12 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
+# Путь к проекту на сервере
 PROJECT_PATH="/var/www/design_code"
+BRANCH="main"
+PROJECT_NAME="design_code"
 
 echo "Starting deployment in $PROJECT_PATH..."
 cd "$PROJECT_PATH" || { echo "Directory $PROJECT_PATH not found"; exit 1; }
 
-# Load .env (TELEGRAM_*)
+# --- Load .env (for TELEGRAM_*, etc.) ---
 if [ -f ".env" ]; then
   set -a
   source ".env"
@@ -32,13 +35,16 @@ send_telegram() {
     > /dev/null || true
 }
 
+# Если что-то упало — отправляем уведомление и выходим с ошибкой
 trap 'send_telegram "❌ <b>Deploy FAILED</b>
 
-Server: <code>${HOST}</code>
-Path: <code>${PROJECT_PATH}</code>
-Step: <code>${CURRENT_STEP}</code>"; exit 1' ERR
+Project: <code>'"${PROJECT_NAME}"'</code>
+Branch: <code>'"${BRANCH}"'</code>
+Server: <code>'"${HOST}"'</code>
+Path: <code>'"${PROJECT_PATH}"'</code>
+Step: <code>'"${CURRENT_STEP}"'</code>"; exit 1' ERR
 
-# Ensure Node 20 via NVM (important for non-interactive SSH)
+# --- Ensure Node 20 via NVM (critical for non-interactive SSH sessions) ---
 CURRENT_STEP="nvm use 20"
 export NVM_DIR="$HOME/.nvm"
 if [ -s "$NVM_DIR/nvm.sh" ]; then
@@ -53,33 +59,38 @@ nvm use 20 > /dev/null
 echo "Node: $(node -v)"
 echo "NPM:  $(npm -v)"
 
-# 1) Git sync (оставил pull как у тебя; если хочешь — заменим на reset --hard)
-CURRENT_STEP="git pull"
-echo "Pulling latest changes from git..."
-git pull origin main
+# 1) Жёстко синкаем код с origin/main (без конфликтов из-за локальных изменений)
+CURRENT_STEP="git sync"
+echo "Syncing code with origin/${BRANCH}..."
+git fetch origin
+git reset --hard "origin/${BRANCH}"
+git clean -fd
 
 COMMIT_HASH="$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 COMMIT_MSG="$(git log -1 --pretty=%s 2>/dev/null || echo "unknown")"
 
-# 2) Python deps
-CURRENT_STEP="pip install"
+# 2) Обновляем Python зависимости (бэкенд)
+CURRENT_STEP="pip install -r requirements.txt"
 echo "Updating Python dependencies..."
 # shellcheck disable=SC1091
 source venv/bin/activate
 pip install -r requirements.txt
 
-# 3) Frontend build
+# 3) Сборка фронтенда (Next.js)
 CURRENT_STEP="frontend build"
 echo "Building frontend..."
 cd furniture-catalog
+
+# Убеждаемся, что есть ссылка на .env для сборки
 ln -sf ../.env .env.local
 
-# Лучше для CI/прода: npm ci (не меняет package-lock), но оставляю install как у тебя
-npm install
+# В проде/CI правильно использовать npm ci (не меняет package-lock)
+npm ci
 npm run build
+
 cd ..
 
-# 4) PM2 restart
+# 4) Перезапуск процессов через PM2
 CURRENT_STEP="pm2 restart"
 echo "🔄 Restarting PM2 processes..."
 pm2 restart ecosystem.config.js --update-env
@@ -89,6 +100,8 @@ DURATION="$((END_TS - START_TS))"
 
 send_telegram "✅ <b>Deploy SUCCESS</b>
 
+Project: <code>${PROJECT_NAME}</code>
+Branch: <code>${BRANCH}</code>
 Server: <code>${HOST}</code>
 Path: <code>${PROJECT_PATH}</code>
 Time: ${DURATION}s
