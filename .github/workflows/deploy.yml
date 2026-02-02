@@ -21,5 +21,4 @@ jobs:
           script: |
             cd /var/www/design_code
             # Делаем скрипт исполняемым на случай, если права сбились
-            chmod +x deploy.sh
             ./deploy.sh
