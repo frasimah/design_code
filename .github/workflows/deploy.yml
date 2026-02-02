@@ -20,5 +20,4 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /var/www/design_code
-            # Делаем скрипт исполняемым на случай, если права сбились
-            ./deploy.sh
+            /usr/bin/env bash deploy.sh
