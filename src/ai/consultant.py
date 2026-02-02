@@ -324,6 +324,7 @@ Format: {{ "indices": [0, 2, ...] }}
 
         # Clean up response (remove JSON block if present)
         clean_response = response_text
+        import re
         
         # 1. Try generic code block removal
         if "```json" in clean_response:
@@ -334,17 +335,23 @@ Format: {{ "indices": [0, 2, ...] }}
                  clean_response = parts[0].strip()
                  
         # 2. Aggressive fallback: cleanup raw JSON if it leaked without backticks
-        # Look for the specific pattern we asked for: "recommended_slugs"
-        # We assume the JSON is at the end of the message
-        import re
-        # This regex looks for { "recommended_slugs": ... } at the end of string
-        # using dotall to capture multi-line JSON
-        json_pattern = r'\{\s*"recommended_slugs"\s*:.*?\}\s*$'
+        # Multiple patterns to catch different formatting variations
         
-        match = re.search(json_pattern, clean_response, re.DOTALL)
-        if match:
-            # Found it at the end, cut it off
-            clean_response = clean_response[:match.start()].strip()
+        # Pattern 1: Multiline JSON block with recommended_slugs (greedy match to closing brace)
+        json_pattern1 = r'\{\s*\n?\s*"recommended_slugs"\s*:\s*\[.*?\]\s*\n?\s*\}\s*$'
+        
+        # Pattern 2: Single line version
+        json_pattern2 = r'\{\s*"recommended_slugs"\s*:\s*\[.*?\]\s*\}'
+        
+        # Pattern 3: Any JSON-like block at the end starting with { and containing recommended
+        json_pattern3 = r'\{[^{}]*"recommended_slugs"[^{}]*\}\s*$'
+        
+        # Try each pattern
+        for pattern in [json_pattern1, json_pattern2, json_pattern3]:
+            match = re.search(pattern, clean_response, re.DOTALL | re.MULTILINE)
+            if match:
+                clean_response = clean_response[:match.start()].strip()
+                break
         
         self.storage.add_message(user_id, "user", query)
         self.storage.add_message(user_id, "model", response_text) # Save full response with JSON for debugging/future use
