@@ -6,11 +6,26 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# Пути
+BASE_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = BASE_DIR
 
+# Load environment variables from .env file
+dotenv_path = PROJECT_ROOT / ".env"
+if dotenv_path.exists():
+    load_dotenv(dotenv_path=dotenv_path)
+    print(f"Loaded environment from {dotenv_path}")
+else:
+    print(f"Warning: .env file not found at {dotenv_path}")
 
 # API Keys
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+NEXTAUTH_SECRET = os.environ.get("NEXTAUTH_SECRET")
+
+if not NEXTAUTH_SECRET:
+    print("Warning: NEXTAUTH_SECRET not found in environment, using development default")
+    NEXTAUTH_SECRET = "development-secret-please-change-in-production"
+
 # TELEGRAM_BOT_TOKEN removed
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 GEMINI_PROXY_URL = os.environ.get("GEMINI_PROXY_URL")
@@ -29,9 +44,7 @@ if GEMINI_PROXY_URL:
     os.environ["https_proxy"] = proxy_url
 
 
-# Пути
-BASE_DIR = Path(__file__).resolve().parent.parent
-PROJECT_ROOT = BASE_DIR
+# Директории данных
 DATA_DIR = BASE_DIR / "data"
 PRODUCTS_JSON_PATH = PROJECT_ROOT / "products.json"
 

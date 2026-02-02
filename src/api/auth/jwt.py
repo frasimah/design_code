@@ -18,9 +18,7 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
 from jwcrypto import jwe
 from jwcrypto.common import base64url_decode
-
-# NextAuth uses the same secret for JWT signing
-NEXTAUTH_SECRET = os.environ.get("NEXTAUTH_SECRET", "development-secret-please-change-in-production")
+from config.settings import NEXTAUTH_SECRET
 
 security = HTTPBearer(auto_error=False)
 
@@ -46,6 +44,9 @@ def _decrypt_nextauth_token(token: str) -> Optional[dict]:
     try:
         import base64
         # Derive the key
+        if NEXTAUTH_SECRET == "development-secret-please-change-in-production":
+            print("[JWT DEBUG] WARNING: Using default NEXTAUTH_SECRET. Decryption will fail if production token is used.")
+            
         key_bytes = _derive_encryption_key(NEXTAUTH_SECRET)
         
         # Create JWK from the derived key - proper base64url encoding
@@ -62,7 +63,10 @@ def _decrypt_nextauth_token(token: str) -> Optional[dict]:
         payload = json.loads(jwetoken.payload.decode('utf-8'))
         return payload
     except Exception as e:
-        print(f"[JWT DEBUG] JWE decryption failed: {e}")
+        # Don't print the token itself for security, but print the error
+        print(f"[JWT DEBUG] JWE decryption failed. Error: {str(e)}")
+        if "Invalid JWK" in str(e):
+             print("[JWT DEBUG] Possible cause: Incorrect NEXTAUTH_SECRET or key derivation failure.")
         return None
 
 
