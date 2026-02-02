@@ -1,17 +1,18 @@
 
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ChatWidget } from "@/components/chat-widget/ChatWidget";
+import { Providers } from "@/components/providers";
+import { AuthGuard } from "@/components/auth-guard";
 
 // Fallback font since Anthropic Sans is proprietary/local
 const fontSans = Inter({
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
   variable: "--font-anthropic-sans",
 });
 
 export const metadata = {
-  title: "Furniture Consultant",
-  description: "Designer Furniture Consultant",
+  title: "Design Code Panel",
+  description: "Интеллектуальный каталог мебели с AI-консультантом",
 };
 
 export default function RootLayout({
@@ -20,10 +21,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ru">
       <body className={`${fontSans.variable} font-sans`}>
-        {children}
-        {/* <ChatWidget /> */}
+        <Providers>
+          <AuthGuard>
+            {children}
+          </AuthGuard>
+        </Providers>
       </body>
     </html>
   );

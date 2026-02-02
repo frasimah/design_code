@@ -1,13 +1,19 @@
-from fastapi import APIRouter
-from typing import List, Dict, Any
+from fastapi import APIRouter, Depends
+from typing import List, Dict, Any, Optional
 import json
+import os
 from config.settings import DATA_DIR
 from pydantic import BaseModel
 from src.storage.project_storage import ProjectStorage
+from src.api.auth.jwt import get_current_user, require_auth
 
 router = APIRouter()
 
-DB_FILE = DATA_DIR / "user_data.db"
+# Use separate database for tests to avoid destroying production data
+if os.environ.get("TEST_MODE"):
+    DB_FILE = DATA_DIR / "test_user_data.db"
+else:
+    DB_FILE = DATA_DIR / "user_data.db"
 storage = ProjectStorage(DB_FILE)
 
 # Migration from JSON to SQLite
@@ -26,16 +32,21 @@ if JSON_FILE.exists():
 class Project(BaseModel):
     id: str
     name: str
-    slug: str
     items: List[Dict[str, Any]]
 
 @router.get("/", response_model=List[Project])
-async def get_projects():
-    return storage.get_projects()
+async def get_projects(user: Optional[dict] = Depends(get_current_user)):
+    """Get projects for the authenticated user"""
+    user_id = user.get("id") if user else None
+    return storage.get_projects(user_id)
 
 @router.post("/", response_model=List[Project])
-async def save_all_projects(projects: List[Project]):
-    # Convert Pydantic models to dicts
+async def save_all_projects(
+    projects: List[Project],
+    user: dict = Depends(require_auth)
+):
+    """Save projects for the authenticated user"""
     projects_data = [p.model_dump() for p in projects]
-    storage.save_projects(projects_data)
+    storage.save_projects(projects_data, user["id"])
     return projects
+

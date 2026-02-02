@@ -3,11 +3,15 @@
 
 import pytest
 import sys
+import os
 from pathlib import Path
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+# Use test database to avoid destroying production data
+os.environ["TEST_MODE"] = "true"
 
 @pytest.fixture
 def app():

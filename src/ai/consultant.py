@@ -139,6 +139,65 @@ class Consultant:
         return None
 
 
+
+    def _rerank_products(self, query: str, products: List[Dict]) -> List[Dict]:
+        """
+        Rerank and filter products using LLM to ensure they match specific constraints (color, material, etc).
+        """
+        if not products:
+            return []
+            
+        # console.print("[cyan]Running LLM Reranking...[/cyan]")
+        
+        # Prepare candidates for LLM
+        candidates_text = ""
+        for i, p in enumerate(products):
+            details = p.get('details', {})
+            name = details.get('name', p['slug'])
+            desc = details.get('description', '')[:200]
+            attributes = details.get('attributes', {})
+            
+            candidates_text += f"Item {i}: {name}\nDesc: {desc}\nAttrs: {attributes}\n\n"
+            
+        prompt = f"""User Query: "{query}"
+
+I have a list of candidate products found by semantic search. 
+Your task is to FILTER out products that strictly DO NOT match the visual constraints in the user query (e.g. wrong color, wrong type).
+If the query is vague, keep more products. If specific (e.g. "black lamp"), be strict.
+
+Candidates:
+{candidates_text}
+
+Return a JSON with a list of indices of the best matching products (max 5), sorted by relevance.
+Format: {{ "indices": [0, 2, ...] }}
+"""
+        try:
+            response = self.chat_model.generate_content(prompt)
+            text = response.text
+            
+            import re
+            json_match = re.search(r'```json\s*({.*?})\s*```', text, re.DOTALL)
+            if not json_match:
+                json_match = re.search(r'```\s*({.*?})\s*```', text, re.DOTALL)
+                
+            if json_match:
+                data = json.loads(json_match.group(1))
+                indices = data.get("indices", [])
+                
+                reranked = []
+                for idx in indices:
+                    if 0 <= idx < len(products):
+                        reranked.append(products[idx])
+                
+                if reranked:
+                    # console.print(f"[green]Reranked to {len(reranked)} products[/green]")
+                    return reranked
+                    
+        except Exception as e:
+            console.print(f"[red]Reranking failed: {e}[/red]")
+            
+        return products[:5] # Fallback to top 5
+
     def answer(self, query: str, image_path: Optional[str] = None, user_id: str = "default", n_products: int = 5, sources: Optional[List[str]] = None) -> Dict:
         """
         Ответить на вопрос пользователя с учетом истории и (опционально) изображения
@@ -162,18 +221,28 @@ class Consultant:
             if not where_filters:
                 where_filters = None
             
-            relevant = self.embeddings.search(query, n_results=n_products, where=where_filters)
-            console.print(f"[dim]Search returned {len(relevant)} products (sources={sources})[/dim]")
+            relevant = self.embeddings.search(query, n_results=20, where=where_filters)
+            console.print(f"[dim]Search returned {len(relevant)} raw products (sources={sources})[/dim]")
+            
+            # Enrich relevant products with details locally first for reranking
+            for r in relevant:
+                if 'slug' in r:
+                    details = self._get_product_details(r['slug'])
+                    if details:
+                        r['details'] = details
+            
+            # Rerank to get top 5 best matches
+            relevant = self._rerank_products(query, relevant)
         except Exception as e:
             console.print(f"[yellow]Embedding search failed (ignoring): {e}[/yellow]")
             relevant = []
         
-        # Enrich relevant products with details
+        # Enrich relevant products with details (already done for reranking, but ensuring safety)
         for r in relevant:
-            if 'slug' in r:
-                details = self._get_product_details(r['slug'])
-                if details:
-                    r['details'] = details
+            if 'slug' in r and 'details' not in r:
+                 details = self._get_product_details(r['slug'])
+                 if details:
+                     r['details'] = details
 
         context = self._format_context(relevant)
         
@@ -253,11 +322,23 @@ class Consultant:
         else:
              final_products = relevant
 
+        # Clean up response (remove JSON block if present)
+        clean_response = response_text
+        if "```json" in clean_response:
+             clean_response = clean_response.split("```json")[0].strip()
+        elif "```" in clean_response:
+             # Try to find the last block
+             parts = clean_response.split("```")
+             if len(parts) >= 3:
+                 # Usually text ```json ... ``` text
+                 # We want the text before the json
+                 clean_response = parts[0].strip()
+        
         self.storage.add_message(user_id, "user", query)
-        self.storage.add_message(user_id, "model", response_text)
+        self.storage.add_message(user_id, "model", response_text) # Save full response with JSON for debugging/future use
         
         return {
-            "answer": response_text,
+            "answer": clean_response,
             "products": final_products
         }
 

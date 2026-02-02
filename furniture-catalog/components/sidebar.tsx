@@ -3,8 +3,10 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { MessageSquare, Folder, Boxes, Plus, PanelLeftClose, PanelLeftOpen, FolderOpen, ChevronRight, Trash2, Globe, Pencil, Check, X } from "lucide-react";
+import { MessageSquare, Folder, Boxes, Plus, PanelLeftClose, PanelLeftOpen, FolderOpen, ChevronRight, Trash2, Globe, Pencil, Check, X, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AuthButton } from "@/components/auth-button";
+import Link from "next/link";
 
 type Project = { id: string; name: string; items: unknown[] };
 
@@ -113,8 +115,25 @@ export function Sidebar({ className, onNewChat, history, onSelectChat, onDeleteC
                 </div>
             </div>
 
-            <div className="p-3 mt-auto border-t border-[#1f1e1d0f]">
-                <NavItem icon={<div className="h-5 w-5 rounded-full bg-[#c6613f] text-white flex items-center justify-center text-[10px] font-bold">AS</div>} label="Alexandr S." collapsed={collapsed} isUser />
+            <div className="p-3 mt-auto border-t border-[#1f1e1d0f] space-y-1">
+                <Button
+                    asChild
+                    variant="ghost"
+                    className={cn(
+                        "w-full justify-start gap-3 h-9 px-2 text-[#565552] hover:bg-[#1f1e1d0f] transition-colors",
+                        collapsed && "justify-center px-0"
+                    )}
+                >
+                    <Link href="/settings">
+                        <Settings className="h-4 w-4 shrink-0" />
+                        {!collapsed && <span className="truncate text-sm font-medium">Настройки</span>}
+                    </Link>
+                </Button>
+                {collapsed ? (
+                    <AuthButton />
+                ) : (
+                    <AuthButton />
+                )}
             </div>
         </div >
     );

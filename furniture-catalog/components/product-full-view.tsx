@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Product, api } from "@/lib/api";
-import { ArrowLeft, MoreHorizontal, Share, Download, Heart, BookmarkPlus } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Share, Download, Heart, BookmarkPlus, Trash2, GripVertical } from "lucide-react";
 import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +15,8 @@ interface ProductFullViewProps {
 }
 
 export function ProductFullView({ product, onBack, onSave }: ProductFullViewProps) {
+    const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
     // Combine main image and gallery
     // Combine all image sources
     const rawImages = [
@@ -45,8 +49,8 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                     <div className="flex-1 flex flex-col items-center text-center">
                         <h1 className="text-[32px] font-bold text-[#141413] leading-tight mb-1">{product.name}</h1>
                         <div className="flex items-center gap-2 text-sm text-[#565552]">
-                            {/* Display article if available, or texture description */}
-                            <span>{product.article || "Артикул не указан"}</span>
+                            {/* Display price if available */}
+                            <span>{product.price ? `${product.price.toLocaleString()} ${product.currency || 'RUB'}` : "Цена не указана"}</span>
                         </div>
                     </div>
 
@@ -63,7 +67,7 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                         <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413]">
                             <Share className="h-5 w-5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413]">
+                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413]" onClick={() => setIsDetailsOpen(true)}>
                             <MoreHorizontal className="h-5 w-5" />
                         </Button>
                     </div>
@@ -72,10 +76,12 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                 {/* Sub-header Controls / Description */}
                 <div className="flex flex-col items-center text-center max-w-2xl mx-auto mt-4 mb-8">
                     {/* Optional: Add description snippet if available */}
+                    {/* Optional: Add description snippet if available */}
                     {product.description && (
-                        <p className="text-[#565552] text-sm leading-relaxed line-clamp-2">
-                            {product.description}
-                        </p>
+                        <div
+                            className="text-[#565552] text-sm leading-relaxed line-clamp-2 prose prose-sm max-w-none [&>p]:m-0 [&>p]:inline"
+                            dangerouslySetInnerHTML={{ __html: product.description }}
+                        />
                     )}
 
                     <div className="flex items-center gap-4 mt-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -99,9 +105,12 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                     <div className="text-muted-foreground">Нет изображений</div>
                 </div>
             ) : (
-                <div className="columns-1 sm:columns-2 md:columns-3 gap-4 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {images.map((img, idx) => (
-                        <div key={idx} className="relative rounded-xl overflow-hidden group bg-secondary/20 break-inside-avoid shadow-sm hover:shadow-md transition-shadow">
+                        <div
+                            key={idx}
+                            className="relative rounded-xl overflow-hidden group bg-secondary/20 shadow-sm hover:shadow-md transition-all"
+                        >
                             <Image
                                 src={img}
                                 alt={`${product.name} ${idx + 1}`}
@@ -111,8 +120,60 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                                 className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
                                 sizes="(max-width: 768px) 100vw, 33vw"
                             />
-                            {/* Individual Save Button */}
-                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            {/* Reorder Button - Left side */}
+                            <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <Button
+                                    size="icon"
+                                    variant="secondary"
+                                    className="h-8 w-8 rounded-full bg-white/90 hover:bg-white text-[#141413] shadow-sm backdrop-blur-sm"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (onSave && images.length > 1) {
+                                            const newImages = [...images];
+                                            // Move image one position to the left (earlier in array)
+                                            // If first, wrap to end
+                                            if (idx === 0) {
+                                                // Move first to end
+                                                const [first] = newImages.splice(0, 1);
+                                                newImages.push(first);
+                                            } else {
+                                                // Swap with previous
+                                                [newImages[idx - 1], newImages[idx]] = [newImages[idx], newImages[idx - 1]];
+                                            }
+                                            onSave({
+                                                ...product,
+                                                images: newImages,
+                                                main_image: newImages[0]
+                                            });
+                                        }
+                                    }}
+                                >
+                                    <GripVertical className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            {/* Action Buttons - Right side */}
+                            <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                {/* Delete Photo */}
+                                <Button
+                                    size="icon"
+                                    variant="secondary"
+                                    className="h-8 w-8 rounded-full bg-white/90 hover:bg-red-50 text-[#141413] hover:text-red-600 shadow-sm backdrop-blur-sm"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Remove this image from the product
+                                        if (onSave) {
+                                            const updatedImages = images.filter((_, i) => i !== idx);
+                                            onSave({
+                                                ...product,
+                                                images: updatedImages,
+                                                main_image: updatedImages[0] || undefined
+                                            });
+                                        }
+                                    }}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                                {/* Save as Main */}
                                 <Button
                                     size="icon"
                                     variant="secondary"
@@ -133,6 +194,95 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                     ))}
                 </div>
             )}
+
+            {/* Product Details Modal */}
+            <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+                <DialogContent
+                    className="bg-[#faf9f5] border-[#1f1e1d0f] rounded-xl shadow-2xl overflow-hidden p-0 gap-0"
+                    style={{ width: '90vw', maxWidth: '1200px' }}
+                >
+                    <DialogHeader className="px-6 py-4 border-b border-[#1f1e1d0f] flex flex-row items-center justify-between bg-white backdrop-blur-md">
+                        <DialogTitle className="text-lg font-bold text-[#141413]">
+                            Характеристики
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="p-6 overflow-y-auto max-h-[70vh] scrollbar-thin">
+                        <div className="space-y-3">
+                            {/* Article - always show first */}
+                            <div className="flex justify-between items-baseline gap-4 text-[14px]">
+                                <span className="text-[#888886] shrink-0">Артикул</span>
+                                <div className="h-[1px] flex-1 bg-[#1f1e1d1a] translate-y-[-4px]" />
+                                <span className="text-[#141413] font-medium text-right shrink-0 max-w-[60%]">{product.article || "—"}</span>
+                            </div>
+
+                            {/* Brand */}
+                            {product.brand && (
+                                <div className="flex justify-between items-baseline gap-4 text-[14px]">
+                                    <span className="text-[#888886] shrink-0">Бренд</span>
+                                    <div className="h-[1px] flex-1 bg-[#1f1e1d1a] translate-y-[-4px]" />
+                                    <span className="text-[#141413] font-medium text-right shrink-0">{product.brand}</span>
+                                </div>
+                            )}
+
+                            {/* Parameters (technical specs) - filtered to avoid duplicates */}
+                            {product.parameters && Object.entries(product.parameters)
+                                .filter(([key]) => {
+                                    const lowerKey = key.toLowerCase();
+                                    // Skip keys that are already displayed explicitly
+                                    const skipKeys = ['артикул', 'article', 'цена', 'price', 'бренд', 'brand', 'источник', 'source'];
+                                    return !skipKeys.includes(lowerKey);
+                                })
+                                .map(([key, value]) => (
+                                    <div key={`param-${key}`} className="flex justify-between items-baseline gap-4 text-[14px]">
+                                        <span className="text-[#888886] shrink-0">{key}</span>
+                                        <div className="h-[1px] flex-1 bg-[#1f1e1d1a] translate-y-[-4px]" />
+                                        <span className="text-[#141413] font-medium text-right shrink-0 max-w-[60%]">{String(value)}</span>
+                                    </div>
+                                ))}
+
+                            {/* Attributes (WooCommerce/dynamic) - filtered to avoid duplicates with parameters */}
+                            {product.attributes && Object.entries(product.attributes)
+                                .filter(([key]) => {
+                                    const lowerKey = key.toLowerCase();
+                                    // Skip keys that are already displayed explicitly
+                                    const skipKeys = ['артикул', 'article', 'цена', 'price', 'бренд', 'brand', 'источник', 'source'];
+                                    if (skipKeys.includes(lowerKey)) return false;
+                                    // Also skip if already in parameters
+                                    if (product.parameters && Object.keys(product.parameters).some(pKey => pKey.toLowerCase() === lowerKey)) return false;
+                                    return true;
+                                })
+                                .map(([key, value]) => (
+                                    <div key={`attr-${key}`} className="flex justify-between items-baseline gap-4 text-[14px]">
+                                        <span className="text-[#888886] shrink-0">{key}</span>
+                                        <div className="h-[1px] flex-1 bg-[#1f1e1d1a] translate-y-[-4px]" />
+                                        <span className="text-[#141413] font-medium text-right shrink-0 max-w-[60%]">{String(value)}</span>
+                                    </div>
+                                ))}
+
+                            {/* Source */}
+                            {product.source && (
+                                <div className="flex justify-between items-baseline gap-4 text-[14px]">
+                                    <span className="text-[#888886] shrink-0">Источник</span>
+                                    <div className="h-[1px] flex-1 bg-[#1f1e1d1a] translate-y-[-4px]" />
+                                    <span className="text-[#141413] font-medium text-right shrink-0">{product.source}</span>
+                                </div>
+                            )}
+
+                            {/* Price - always show last */}
+                            {product.price && (
+                                <div className="flex justify-between items-baseline gap-4 text-[14px]">
+                                    <span className="text-[#888886] shrink-0">Цена</span>
+                                    <div className="h-[1px] flex-1 bg-[#1f1e1d1a] translate-y-[-4px]" />
+                                    <span className="text-[#141413] font-medium text-right shrink-0">
+                                        {product.price.toLocaleString()} {product.currency || 'RUB'}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from config.settings import DATA_DIR, UPLOAD_DIR, PROJECT_ROOT
-from src.api.routes import chat, currency, import_url, products, projects, upload, vision, print_proposal
+from src.api.routes import chat, currency, import_url, products, projects, upload, vision, print_proposal, profile
 
 app = FastAPI(
     title="Design Code API",
@@ -28,6 +28,7 @@ app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(upload.router, prefix="/api/upload", tags=["upload"])
 app.include_router(currency.router, prefix="/api/currency", tags=["currency"])
 app.include_router(print_proposal.router, prefix="/api/print", tags=["print"])
+app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
 
 # Mount static files
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")

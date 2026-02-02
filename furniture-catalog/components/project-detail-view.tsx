@@ -28,9 +28,10 @@ interface ProjectDetailViewProps {
     onProductClick: (product: Product) => void;
     onRemoveItem?: (product: Product) => void;
     onProductAdded?: (product: Product) => void;
+    accessToken?: string;
 }
 
-export function ProjectDetailView({ project, onBack, onProductClick, onRemoveItem, onProductAdded }: ProjectDetailViewProps) {
+export function ProjectDetailView({ project, onBack, onProductClick, onRemoveItem, onProductAdded, accessToken }: ProjectDetailViewProps) {
     const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<Product | null>(null);
 
@@ -65,12 +66,39 @@ export function ProjectDetailView({ project, onBack, onProductClick, onRemoveIte
                     <div className="flex-1 flex justify-end gap-3">
                         <Button
                             className="bg-[#e9e9e9] hover:bg-[#dcdcdc] text-black font-medium border-0 rounded-full px-5 h-10 shadow-none"
-                            onClick={() => {
-                                const slug = project.slug || project.id; // Fallback to ID if no slug, though backend should provide slug
-                                window.open(`http://localhost:8000/api/print/${slug}`, '_blank');
+                            onClick={async () => {
+                                const slug = project.slug || project.id;
+                                try {
+                                    const headers: HeadersInit = {};
+                                    if (accessToken) {
+                                        headers['Authorization'] = `Bearer ${accessToken}`;
+                                    }
+
+                                    const response = await fetch(`http://localhost:8000/api/print/${slug}`, { headers });
+
+                                    if (!response.ok) {
+                                        if (response.status === 401) {
+                                            alert("Пожалуйста, авторизуйтесь для печати КП");
+                                            return;
+                                        }
+                                        throw new Error("Failed to load PDF preview");
+                                    }
+
+                                    const html = await response.text();
+                                    const win = window.open('', '_blank');
+                                    if (win) {
+                                        win.document.write(html);
+                                        win.document.close();
+                                    } else {
+                                        alert("Разрешите всплывающие окна для просмотра КП");
+                                    }
+                                } catch (error) {
+                                    console.error("Print error:", error);
+                                    alert("Ошибка при формировании КП");
+                                }
                             }}
                         >
-                            Поделиться
+                            Распечатать КП
                         </Button>
                         <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413]">
                             <MoreHorizontal className="h-5 w-5" />

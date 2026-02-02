@@ -17,6 +17,7 @@ export interface MaterialsViewProps {
     currencyMode?: 'original' | 'rub';
     exchangeRate?: number;
     onToggleCurrency?: () => void;
+    accessToken?: string;
 }
 
 function useDebounceValue<T>(value: T, delay: number): T {
@@ -42,7 +43,8 @@ export function MaterialsView({
     initialSource,
     currencyMode = 'original',
     exchangeRate = 0,
-    onToggleCurrency
+    onToggleCurrency,
+    accessToken
 }: MaterialsViewProps) {
     const [query, setQuery] = useState("");
     const debouncedQuery = useDebounceValue(query, 500);
@@ -81,10 +83,10 @@ export function MaterialsView({
 
     // Load available sources on mount
     useEffect(() => {
-        api.getSources().then(data => {
+        api.getSources(accessToken).then(data => {
             setAvailableSources(data.map(s => ({ id: s.id, name: s.name })));
         }).catch(console.error);
-    }, []);
+    }, [accessToken]);
 
     // Reset when filters change
     useEffect(() => {
@@ -115,7 +117,8 @@ export function MaterialsView({
                     offset,
                     selectedCategory !== 'all' ? selectedCategory : undefined,
                     activeSort !== 'default' ? activeSort : undefined,
-                    brandParam
+                    brandParam,
+                    accessToken
                 );
                 const { items, total } = response;
 

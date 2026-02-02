@@ -14,8 +14,15 @@ def export_content():
     
     # Files/Dirs to include
     include_paths = [
+        # Catalog data
         DATA_DIR / "processed" / "full_catalog.json",
-        DATA_DIR / "embeddings"
+        # AI embeddings (ChromaDB)
+        DATA_DIR / "embeddings",
+        # User databases
+        DATA_DIR / "chat_history.db",
+        DATA_DIR / "user_data.db",
+        # Uploaded images
+        DATA_DIR / "uploads",
     ]
     
     print("📦 Starting content export...")

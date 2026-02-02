@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import HTMLResponse
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
@@ -7,6 +7,7 @@ import json
 
 from config.settings import DATA_DIR
 from src.storage.project_storage import ProjectStorage
+from src.api.auth.jwt import require_auth
 
 router = APIRouter()
 
@@ -36,15 +37,23 @@ def get_product_details(slug: str) -> dict:
 
 
 @router.get("/{project_slug}", response_class=HTMLResponse)
-async def get_print_proposal(project_slug: str):
+async def get_print_proposal(
+    project_slug: str,
+    user: dict = Depends(require_auth)
+):
     """
     Generate printable commercial proposal HTML for a project.
     Open this page and use Ctrl+P / Cmd+P to export as PDF.
+    Requires authentication to access project and load correct profile.
     """
-    project = storage.get_project_by_slug(project_slug)
+    # Get project and verify ownership/access
+    project = storage.get_project_by_slug(project_slug, user["id"])
     
     if not project:
         raise HTTPException(status_code=404, detail=f"Project '{project_slug}' not found")
+        
+    # Get user profile for contact info
+    profile = storage.get_user_profile(user["id"]) or {}
     
     # Enrich project items with full product details
     enriched_items = []
@@ -76,7 +85,11 @@ async def get_print_proposal(project_slug: str):
     html = template.render(
         project_name=project['name'],
         pages=pages,
-        total_items=len(enriched_items)
+        total_items=len(enriched_items),
+        manager_name=profile.get("manager_name", ""),
+        phone=profile.get("phone", ""),
+        email=profile.get("email", ""),
+        company_name=profile.get("company_name", "designcode.ru")
     )
     
     return HTMLResponse(content=html)

@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form, Depends
 from fastapi.responses import Response
 import httpx
 from typing import List, Optional
@@ -12,12 +12,16 @@ from slugify import slugify
 import ipaddress
 import socket
 from urllib.parse import urlparse
+from src.api.auth.jwt import get_current_user
 
 router = APIRouter()
 
 CUSTOM_CATALOGS_DIR = DATA_DIR / "custom_catalogs"
 CUSTOM_CATALOGS_DIR.mkdir(parents=True, exist_ok=True)
 SOURCES_CONFIG_PATH = DATA_DIR / "sources_config.json"
+
+# Shared sources accessible by all users
+SHARED_SOURCES = {"catalog", "woocommerce"}
 
 def _is_public_hostname(hostname: str) -> bool:
     h = hostname.strip().strip(".").lower()
@@ -212,27 +216,41 @@ catalog_dict = {p['slug']: p for p in catalog_data if p.get('slug')}
 embeddings = BrickEmbeddings()
 
 @router.get("/sources/", response_model=List[dict])
-async def get_sources():
-    """List all available product sources"""
+async def get_sources(user: Optional[dict] = Depends(get_current_user)):
+    """List all available product sources (shared + user's custom)"""
     config = get_sources_config()
+    user_id = user.get("id") if user else None
     
+    # Shared sources available to all
     sources = [
         {"id": "catalog", "name": config.get("catalog", "Локальный каталог")},
         {"id": "woocommerce", "name": config.get("woocommerce", "de-co-de.ru (WC)")}
     ]
     
-    # Add custom catalogs
-    for p in CUSTOM_CATALOGS_DIR.glob("*.json"):
-        sources.append({"id": p.stem, "name": p.stem})
+    # Custom sources only for authenticated users - only show sources owned by this user
+    if user_id:
+        for p in CUSTOM_CATALOGS_DIR.glob("*.json"):
+            source_id = p.stem
+            source_meta = config.get(f"_meta_{source_id}", {})
+            source_owner = source_meta.get("user_id")
+            
+            # Only show source if owner explicitly matches current user
+            # Legacy sources (no owner) are hidden to prevent cross-user leakage
+            if source_owner == user_id:
+                sources.append({"id": source_id, "name": source_meta.get("name", source_id)})
         
     return sources
 
 @router.post("/import/", response_model=ImportStatus)
 async def import_catalog(
     file: UploadFile = File(...),
-    name: str = Form(...)
+    name: str = Form(...),
+    user: dict = Depends(get_current_user)
 ):
-    """Import a new JSON catalog"""
+    """Import a new JSON catalog (user-specific)"""
+    if not user or not user.get("id"):
+        raise HTTPException(status_code=401, detail="Authentication required to import catalogs")
+    
     if not file.filename.endswith('.json'):
         raise HTTPException(status_code=400, detail="Only JSON files are supported")
     
@@ -250,14 +268,21 @@ async def import_catalog(
             
         with open(target_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        # Save source metadata with user_id
+        config = get_sources_config()
+        config[f"_meta_{source_id}"] = {
+            "name": name,
+            "user_id": user["id"]
+        }
+        save_sources_config(config)
             
         # 1. Refresh global cache
         global catalog_data, catalog_dict
         catalog_data = get_catalog()
         catalog_dict = {p['slug']: p for p in catalog_data if p.get('slug')}
         
-        # 2. Re-index embeddings (background would be better, but let's do it sync for now as requested for status)
-        # Filter only new data for faster re-indexing? No, full re-index to be safe as per previous objective
+        # 2. Re-index embeddings
         embeddings.index_catalog(products_list=catalog_data, force_reindex=False)
         
         return ImportStatus(status="success", message=f"Каталог '{name}' успешно импортирован", source_id=source_id)
@@ -494,17 +519,24 @@ async def get_products(
     category: Optional[str] = None,
     brand: Optional[str] = None,
     source: Optional[str] = 'catalog',
-    sort: Optional[str] = None
+    sort: Optional[str] = None,
+    user: Optional[dict] = Depends(get_current_user)
 ):
     """
     Get list of products with optional search query and source.
     """
     # Parse sources
     requested_sources = source.split(',') if source else ['catalog']
-    if 'all' in requested_sources:
-        # Include everything: local, WC, and all custom
-        available_sources = await get_sources()
-        requested_sources = [s['id'] for s in available_sources]
+    
+    # Get allowed sources for this user
+    allowed_sources_list = await get_sources(user)
+    allowed_source_ids = {s['id'] for s in allowed_sources_list}
+    
+    # Filter requested sources to only include allowed ones
+    requested_sources = [s for s in requested_sources if s in allowed_source_ids]
+    
+    if 'all' in requested_sources or source == 'all':
+        requested_sources = list(allowed_source_ids)
         
     wc_products = []
     wc_total = 0
@@ -519,8 +551,9 @@ async def get_products(
     local_candidates = []
     
     # Filter catalog_data by requested sources
-    # We now include 'woocommerce' in local search even if it's also fetched from API
-    local_sources = requested_sources 
+    # EXCLUDE 'woocommerce' from local search if we're fetching it from live API
+    # This prevents double-counting
+    local_sources = [s for s in requested_sources if s != 'woocommerce'] 
     
     if local_sources:
         # Filter by source name

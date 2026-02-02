@@ -1,9 +1,10 @@
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from src.ai.consultant import Consultant
 from config.settings import DATA_DIR, PROJECT_ROOT
+from src.api.auth.jwt import get_current_user, require_auth
 
 router = APIRouter()
 consultant = Consultant()
@@ -19,11 +20,14 @@ class ChatResponse(BaseModel):
     products: Optional[List[dict]] = []
 
 @router.post("/", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, user: Optional[dict] = Depends(get_current_user)):
     """
     Chat with the AI consultant.
     """
     try:
+        # Use authenticated user ID or fallback to anonymous
+        user_id = user.get("id") if user else "anonymous"
+        
         # Handle image if provided
         image_path = None
         if request.image:
@@ -50,7 +54,7 @@ async def chat(request: ChatRequest):
         consultant_result = consultant.answer(
             request.query, 
             image_path=image_path, 
-            user_id="api_user",
+            user_id=user_id,
             sources=request.sources
         )
         response_text = consultant_result.get("answer", "")
@@ -96,10 +100,11 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/history/", response_model=List[dict])
-async def get_history(user_id: str = "api_user"):
+async def get_history(user: Optional[dict] = Depends(get_current_user)):
     """
-    Get chat history for a user.
+    Get chat history for the authenticated user.
     """
+    user_id = user.get("id") if user else "anonymous"
     raw_history = consultant.storage.get_history(user_id, limit=50)
     # Format for frontend: role, content (instead of parts)
     formatted = []
@@ -109,3 +114,4 @@ async def get_history(user_id: str = "api_user"):
             "content": item["parts"][0] if item["parts"] else ""
         })
     return formatted
+

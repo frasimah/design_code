@@ -252,9 +252,9 @@
             </div>
 
             <div class="header-right">
-                <div class="contact-row"><strong>Менеджер:</strong> Екатерина Курчевская</div>
-                <div class="contact-row"><strong>Телефон:</strong> +7 915 010 4799</div>
-                <div class="contact-row"><strong>Email:</strong> e.kurchevskaya@de-co-de.ru</div>
+                <div class="contact-row"><strong>Менеджер:</strong> {{ manager_name or 'Екатерина Курчевская' }}</div>
+                <div class="contact-row"><strong>Телефон:</strong> {{ phone or '+7 915 010 4799' }}</div>
+                <div class="contact-row"><strong>Email:</strong> {{ email or 'e.kurchevskaya@de-co-de.ru' }}</div>
             </div>
         </header>
         {% endif %}
@@ -364,7 +364,7 @@
         </div>
 
         <footer class="footer">
-            <div>designcode.ru</div>
+            <div>{{ company_name or 'designcode.ru' }}</div>
             <div>Страница {{ loop.index }}</div>
         </footer>
     </div>

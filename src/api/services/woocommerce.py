@@ -1,10 +1,53 @@
 import requests
 from requests.auth import HTTPBasicAuth
-from typing import List, Optional
+from typing import List, Optional, Tuple
+import time
+import json
+import hashlib
+from pathlib import Path
+import os
 
-from config.settings import WC_CONSUMER_KEY, WC_CONSUMER_SECRET, WC_BASE_URL
+from config.settings import WC_CONSUMER_KEY, WC_CONSUMER_SECRET, WC_BASE_URL, DATA_DIR
 
 BASE_URL = WC_BASE_URL
+
+# Disk-based cache configuration
+CACHE_DIR = DATA_DIR / "cache" / "woocommerce"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+CACHE_TTL = 3600  # 1 hour default
+
+def _get_cache_path(key: str) -> Path:
+    hashed_key = hashlib.md5(key.encode()).hexdigest()
+    return CACHE_DIR / f"{hashed_key}.json"
+
+def _get_from_cache(key: str, ttl: int = CACHE_TTL) -> Optional[dict]:
+    path = _get_cache_path(key)
+    if not path.exists():
+        return None
+        
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            
+        # Check expiry
+        if time.time() - data["timestamp"] > ttl:
+            return None
+            
+        return data["value"]
+    except Exception as e:
+        print(f"Cache read error for {key}: {e}")
+        return None
+
+def _save_to_cache(key: str, value: any):
+    path = _get_cache_path(key)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({
+                "timestamp": time.time(),
+                "value": value
+            }, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"Cache write error for {key}: {e}")
 
 def _get_auth() -> Optional[HTTPBasicAuth]:
     if not WC_CONSUMER_KEY or not WC_CONSUMER_SECRET:
@@ -82,8 +125,17 @@ def normalize_wc_product(wc_product: dict) -> dict:
         }
     }
 
-def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = None, category: Optional[str] = None, sort: Optional[str] = None, brand: Optional[str] = None) -> List[dict]:
-    """Fetch products from WooCommerce API."""
+def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = None, category: Optional[str] = None, sort: Optional[str] = None, brand: Optional[str] = None) -> Tuple[List[dict], int]:
+    """Fetch products from WooCommerce API with caching."""
+    
+    # Create cache key from parameters
+    cache_key = f"wc_products:{page}:{limit}:{query}:{category}:{sort}:{brand}"
+    
+    # Check cache
+    cached = _get_from_cache(cache_key)
+    if cached:
+        return cached[0], cached[1]
+            
     auth = _get_auth()
     if not auth:
         return [], 0
@@ -124,7 +176,12 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
         )
         if response.status_code == 200:
             total = int(response.headers.get('X-WP-Total', 0))
-            return [normalize_wc_product(p) for p in response.json()], total
+            products = [normalize_wc_product(p) for p in response.json()]
+            result = (products, total)
+            
+            # Cache the result
+            _save_to_cache(cache_key, result)
+            return result
         print(f"WC API Error: {response.status_code} - {response.text}")
         return [], 0
     except Exception as e:
@@ -132,7 +189,12 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
         return [], 0
 
 def fetch_wc_brands() -> List[dict]:
-    """Fetch distinct brands from WooCommerce pwb-brand taxonomy."""
+    """Fetch distinct brands from WooCommerce pwb-brand taxonomy with caching."""
+    cache_key = "wc_brands_list"
+    cached = _get_from_cache(cache_key, ttl=86400) # Cache for 24 hours
+    if cached:
+        return cached
+
     auth = _get_auth()
     if not auth:
         return []
@@ -148,14 +210,21 @@ def fetch_wc_brands() -> List[dict]:
             timeout=10
         )
         if resp.status_code == 200:
-            return [{"id": str(b["id"]), "name": b["name"]} for b in resp.json()]
+            brands = [{"id": str(b["id"]), "name": b["name"]} for b in resp.json()]
+            _save_to_cache(cache_key, brands)
+            return brands
         return []
     except Exception as e:
         print(f"WC Brand Fetch Error: {e}")
         return []
 
 def get_wc_product_by_slug(slug: str) -> Optional[dict]:
-    """Fetch a single details by slug."""
+    """Fetch a single details by slug with caching."""
+    cache_key = f"wc_product_slug:{slug}"
+    cached = _get_from_cache(cache_key)
+    if cached:
+        return cached
+
     auth = _get_auth()
     if not auth:
         return None
@@ -171,13 +240,20 @@ def get_wc_product_by_slug(slug: str) -> Optional[dict]:
         if response.status_code == 200:
             products = response.json()
             if products:
-                return normalize_wc_product(products[0])
+                product = normalize_wc_product(products[0])
+                _save_to_cache(cache_key, product)
+                return product
         return None
     except Exception:
         return None
 
 def fetch_wc_categories() -> List[dict]:
-    """Fetch categories from WooCommerce API."""
+    """Fetch categories from WooCommerce API with caching."""
+    cache_key = "wc_categories_list"
+    cached = _get_from_cache(cache_key, ttl=86400) # Cache for 24h
+    if cached:
+        return cached
+
     auth = _get_auth()
     if not auth:
         return []
@@ -190,7 +266,9 @@ def fetch_wc_categories() -> List[dict]:
             timeout=10
         )
         if response.status_code == 200:
-            return [{"id": str(c["id"]), "name": c["name"], "count": c["count"]} for c in response.json()]
+            cats = [{"id": str(c["id"]), "name": c["name"], "count": c["count"]} for c in response.json()]
+            _save_to_cache(cache_key, cats)
+            return cats
         return []
     except Exception as e:
         print(f"WC Category Fetch Error: {e}")

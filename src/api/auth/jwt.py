@@ -1,0 +1,121 @@
+"""
+JWT/JWE Authentication middleware for FastAPI.
+Verifies NextAuth.js encrypted JWT tokens (JWE) and extracts user information.
+
+NextAuth v4+ uses JWE with:
+- Algorithm: dir (direct encryption)
+- Encryption: A256GCM
+- Key derivation: HKDF with SHA256
+"""
+
+from fastapi import Depends, HTTPException, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional
+import os
+import json
+
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives import hashes
+from jwcrypto import jwe
+from jwcrypto.common import base64url_decode
+
+# NextAuth uses the same secret for JWT signing
+NEXTAUTH_SECRET = os.environ.get("NEXTAUTH_SECRET", "development-secret-please-change-in-production")
+
+security = HTTPBearer(auto_error=False)
+
+
+def _derive_encryption_key(secret: str) -> bytes:
+    """
+    Derive the encryption key from NEXTAUTH_SECRET using HKDF.
+    This replicates what NextAuth.js does internally.
+    """
+    hkdf = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,  # 256 bits for A256GCM
+        salt=b"",
+        info=b"NextAuth.js Generated Encryption Key",
+    )
+    return hkdf.derive(secret.encode("utf-8"))
+
+
+def _decrypt_nextauth_token(token: str) -> Optional[dict]:
+    """
+    Decrypt a NextAuth.js JWE token and return the payload.
+    """
+    try:
+        import base64
+        # Derive the key
+        key_bytes = _derive_encryption_key(NEXTAUTH_SECRET)
+        
+        # Create JWK from the derived key - proper base64url encoding
+        from jwcrypto.jwk import JWK
+        k_encoded = base64.urlsafe_b64encode(key_bytes).rstrip(b'=').decode('ascii')
+        key = JWK(kty="oct", k=k_encoded)
+        
+        # Decrypt the JWE
+        jwetoken = jwe.JWE()
+        jwetoken.deserialize(token)
+        jwetoken.decrypt(key)
+        
+        # Parse the payload
+        payload = json.loads(jwetoken.payload.decode('utf-8'))
+        return payload
+    except Exception as e:
+        print(f"[JWT DEBUG] JWE decryption failed: {e}")
+        return None
+
+
+async def get_current_user(
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> Optional[dict]:
+    """
+    Extract user from NextAuth JWT token (actually JWE).
+    Returns None if no valid token present (allows unauthenticated access for some endpoints).
+    """
+    token = None
+    
+    # Try to get token from either source
+    if credentials:
+        token = credentials.credentials
+    elif authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    
+    if not token:
+        print("[JWT DEBUG] No token found in request")
+        return None
+    
+    # Decrypt the JWE token
+    payload = _decrypt_nextauth_token(token)
+    
+    if not payload:
+        return None
+        
+    user_info = {
+        "id": payload.get("sub") or payload.get("userId"),
+        "email": payload.get("email"),
+        "name": payload.get("name"),
+    }
+    print(f"[JWT DEBUG] Token validated OK, user: {user_info}")
+    return user_info
+
+
+async def require_auth(user: Optional[dict] = Depends(get_current_user)) -> dict:
+    """
+    Require authenticated user. Raises 401 if not authenticated.
+    """
+    if not user or not user.get("id"):
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
+async def optional_auth(user: Optional[dict] = Depends(get_current_user)) -> Optional[dict]:
+    """
+    Optional authentication. Returns user if authenticated, None otherwise.
+    """
+    return user
