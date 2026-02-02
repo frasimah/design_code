@@ -166,6 +166,41 @@ class BrickEmbeddings:
         except Exception as e:
             print(f"Error deleting embedding for {slug}: {e}")
     
+    def delete_by_source(self, source: str):
+        """Delete all products from a specific source."""
+        try:
+            # Get all items with this source
+            results = self.collection.get(
+                where={"source": source},
+                include=[]
+            )
+            if results and results['ids']:
+                console.print(f"[yellow]Deleting {len(results['ids'])} products from source '{source}'...[/yellow]")
+                self.collection.delete(ids=results['ids'])
+                console.print(f"[green]✓ Deleted {len(results['ids'])} products[/green]")
+            else:
+                console.print(f"[dim]No products found for source '{source}'[/dim]")
+        except Exception as e:
+            console.print(f"[red]Error deleting by source {source}: {e}[/red]")
+    
+    def sync_products(self, products: List[Dict], source: str):
+        """Sync products from an external source (delete old, add new)."""
+        console.print(f"[blue]Syncing {len(products)} products from source '{source}'...[/blue]")
+        
+        # First delete all existing products from this source
+        self.delete_by_source(source)
+        
+        # Then add all new products
+        batch_size = 50
+        for i in range(0, len(products), batch_size):
+            batch = products[i:i+batch_size]
+            for p in batch:
+                p['source'] = source  # Ensure source is set
+                self.index_product(p)
+            console.print(f"  Indexed {min(i+batch_size, len(products))}/{len(products)}...")
+        
+        console.print(f"[green]✓ Synced {len(products)} products from '{source}'[/green]")
+    
     def index_catalog(self, catalog_path: Optional[Path] = None, force_reindex: bool = False, products_list: Optional[List[Dict]] = None):
         if products_list is not None:
             catalog = products_list

@@ -188,6 +188,61 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
         print(f"WC API Exception: {e}")
         return [], 0
 
+def fetch_all_wc_products() -> List[dict]:
+    """Fetch ALL products from WooCommerce by iterating through all pages.
+    Used for syncing to ChromaDB embeddings.
+    """
+    all_products = []
+    page = 1
+    per_page = 100  # Max allowed by WooCommerce
+    
+    auth = _get_auth()
+    if not auth:
+        print("WooCommerce credentials not configured")
+        return []
+    
+    while True:
+        params = {
+            "per_page": per_page,
+            "page": page,
+            "status": "publish"
+        }
+        
+        try:
+            response = requests.get(
+                f"{BASE_URL}/products",
+                auth=auth,
+                params=params,
+                timeout=30
+            )
+            
+            if response.status_code != 200:
+                print(f"WC API Error on page {page}: {response.status_code}")
+                break
+                
+            products = response.json()
+            if not products:
+                break  # No more products
+                
+            normalized = [normalize_wc_product(p) for p in products]
+            all_products.extend(normalized)
+            
+            print(f"Fetched page {page}: {len(products)} products (total: {len(all_products)})")
+            
+            # Check if we've reached the last page
+            total_pages = int(response.headers.get('X-WP-TotalPages', 1))
+            if page >= total_pages:
+                break
+                
+            page += 1
+            
+        except Exception as e:
+            print(f"WC API Exception on page {page}: {e}")
+            break
+    
+    print(f"Total WooCommerce products fetched: {len(all_products)}")
+    return all_products
+
 def fetch_wc_brands() -> List[dict]:
     """Fetch distinct brands from WooCommerce pwb-brand taxonomy with caching."""
     cache_key = "wc_brands_list"
