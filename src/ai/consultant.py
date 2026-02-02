@@ -335,23 +335,27 @@ Format: {{ "indices": [0, 2, ...] }}
                  clean_response = parts[0].strip()
                  
         # 2. Aggressive fallback: cleanup raw JSON if it leaked without backticks
-        # Multiple patterns to catch different formatting variations
-        
-        # Pattern 1: Multiline JSON block with recommended_slugs (greedy match to closing brace)
-        json_pattern1 = r'\{\s*\n?\s*"recommended_slugs"\s*:\s*\[.*?\]\s*\n?\s*\}\s*$'
-        
-        # Pattern 2: Single line version
-        json_pattern2 = r'\{\s*"recommended_slugs"\s*:\s*\[.*?\]\s*\}'
-        
-        # Pattern 3: Any JSON-like block at the end starting with { and containing recommended
-        json_pattern3 = r'\{[^{}]*"recommended_slugs"[^{}]*\}\s*$'
-        
-        # Try each pattern
-        for pattern in [json_pattern1, json_pattern2, json_pattern3]:
-            match = re.search(pattern, clean_response, re.DOTALL | re.MULTILINE)
-            if match:
-                clean_response = clean_response[:match.start()].strip()
+        # Simple approach: find line with { before recommended_slugs and cut from there
+        lines = clean_response.split('\n')
+        cut_index = None
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped == '{' or stripped.startswith('{"recommended_slugs'):
+                # Check if recommended_slugs appears in remaining lines
+                remaining = '\n'.join(lines[i:])
+                if 'recommended_slugs' in remaining:
+                    cut_index = i
+                    break
+            elif '"recommended_slugs"' in line:
+                # JSON starts on previous line with just {
+                if i > 0 and lines[i-1].strip() == '{':
+                    cut_index = i - 1
+                else:
+                    cut_index = i
                 break
+        
+        if cut_index is not None:
+            clean_response = '\n'.join(lines[:cut_index]).strip()
         
         self.storage.add_message(user_id, "user", query)
         self.storage.add_message(user_id, "model", response_text) # Save full response with JSON for debugging/future use
