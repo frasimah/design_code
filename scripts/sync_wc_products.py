@@ -1,7 +1,11 @@
 import requests
 import json
+import sys
 from requests.auth import HTTPBasicAuth
 from pathlib import Path
+
+# Add project root to path so we can import config
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Configuration
 from config.settings import WC_CONSUMER_KEY, WC_CONSUMER_SECRET, WC_BASE_URL

@@ -21,11 +21,12 @@ HTTPX_VERIFY_SSL = os.environ.get("HTTPX_VERIFY_SSL", "true").lower() in {"1", "
 
 # Apply Proxy if set
 if GEMINI_PROXY_URL:
-    os.environ["HTTP_PROXY"] = GEMINI_PROXY_URL
-    os.environ["HTTPS_PROXY"] = GEMINI_PROXY_URL
-    # Also set lowercase for some libraries that might check it
-    os.environ["http_proxy"] = GEMINI_PROXY_URL
-    os.environ["https_proxy"] = GEMINI_PROXY_URL
+    # Use socks5h to force remote DNS resolution
+    proxy_url = GEMINI_PROXY_URL.replace('socks5://', 'socks5h://')
+    os.environ["HTTP_PROXY"] = proxy_url
+    os.environ["HTTPS_PROXY"] = proxy_url
+    os.environ["http_proxy"] = proxy_url
+    os.environ["https_proxy"] = proxy_url
 
 
 # Пути
