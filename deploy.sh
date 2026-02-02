@@ -91,6 +91,14 @@ pm2 restart ecosystem.config.js --update-env
 END_TS="$(date +%s)"
 DURATION="$((END_TS - START_TS))"
 
-send_telegram "✅ Deploy SUCCESS\nServer: ${HOST}\nPath: ${PROJECT_PATH}\nTime: ${DURATION}s\nCommit: ${COMMIT_HASH}\nMsg: ${COMMIT_MSG}"
+send_telegram() {
+  local MESSAGE="$1"
+
+  curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+    --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+    --data-urlencode "text=${MESSAGE}" \
+    --data-urlencode "parse_mode=HTML" \
+    > /dev/null || true
+}
 
 echo "✅ Deployment finished successfully!"
