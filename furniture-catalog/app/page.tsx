@@ -510,6 +510,7 @@ export default function Home() {
         onImportSuccess={(sourceId) => {
           api.getSources(accessToken).then(setAvailableSources);
         }}
+        accessToken={accessToken}
       />
     </div>
   );

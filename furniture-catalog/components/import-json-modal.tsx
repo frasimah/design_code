@@ -11,9 +11,10 @@ interface ImportJSONModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onImportSuccess: (sourceId: string) => void;
+    accessToken?: string;
 }
 
-export function ImportJSONModal({ open, onOpenChange, onImportSuccess }: ImportJSONModalProps) {
+export function ImportJSONModal({ open, onOpenChange, onImportSuccess, accessToken }: ImportJSONModalProps) {
     const [file, setFile] = useState<File | null>(null);
     const [name, setName] = useState("");
     const [status, setStatus] = useState<'idle' | 'uploading' | 'processing' | 'success' | 'error'>('idle');
@@ -35,7 +36,7 @@ export function ImportJSONModal({ open, onOpenChange, onImportSuccess }: ImportJ
 
         setStatus('uploading');
         try {
-            const res = await api.importCatalog(file, name);
+            const res = await api.importCatalog(file, name, accessToken);
             setStatus('success');
             setMessage(res.message);
             setTimeout(() => {

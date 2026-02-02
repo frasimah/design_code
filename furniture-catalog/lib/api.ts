@@ -171,13 +171,17 @@ export const api = {
     },
 
 
-    async importCatalog(file: File, name: string): Promise<{ status: string, message: string, source_id: string }> {
+    async importCatalog(file: File, name: string, token?: string): Promise<{ status: string, message: string, source_id: string }> {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('name', name);
 
+        const headers: HeadersInit = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const res = await fetch(`${API_BASE_URL}/products/import/`, {
             method: 'POST',
+            headers,
             body: formData
         });
         if (!res.ok) {
