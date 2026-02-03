@@ -1,5 +1,5 @@
 // Use relative path in production (proxy via Next.js or Nginx), fallback to localhost for dev
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
 // Helper to get auth headers if token is available
 function getAuthHeaders(token?: string): HeadersInit {
