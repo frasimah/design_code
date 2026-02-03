@@ -240,7 +240,7 @@ export function MaterialsView({
                 <div className="flex flex-col gap-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-baseline gap-3">
-                            <h1 className="text-4xl font-serif text-[#141413]">Материалы</h1>
+                            <h1 className="text-4xl font-serif text-[#141413]">Каталог</h1>
                             {!loading && (
                                 <span className="text-lg text-muted-foreground font-medium">
                                     ({totalCount})

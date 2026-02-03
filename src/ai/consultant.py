@@ -296,14 +296,20 @@ Format: {{ "indices": [0, 2, ...] }}
             response = chat.send_message(text_part)
             response_text = response.text
         
-        # --- UI Control (Optional: keep if frontend uses it) ---
+        # --- UI Control ---
         import re
         recommended_slugs = []
         
-        # Ищем JSON блок
+        # 1. Try to find JSON in code blocks first
         json_match = re.search(r'```json\s*({.*?})\s*```', response_text, re.DOTALL)
         if not json_match:
              json_match = re.search(r'```\s*({.*?})\s*```', response_text, re.DOTALL)
+        
+        # 2. If not found, try to find raw JSON with "recommended_slugs"
+        if not json_match:
+             # Look for { ... "recommended_slugs": [ ... ] ... }
+             raw_pattern = r'(\{.*?"recommended_slugs".*?\[.*?\].*?\})'
+             json_match = re.search(raw_pattern, response_text, re.DOTALL)
 
         if json_match:
             try:
@@ -320,40 +326,21 @@ Format: {{ "indices": [0, 2, ...] }}
                 if slug in relevant_map:
                     final_products.append(relevant_map[slug])
         else:
-             final_products = [] # Strict mode: do not show products if not explicitly recommended
+             final_products = [] 
 
-        # Clean up response (remove JSON block if present)
+        # Clean up response (remove JSON block)
         clean_response = response_text
-        import re
         
-        # 1. Remove JSON in code blocks (```json ... ``` or ``` ... ```)
-        # 1. New Robust Logic: Find "recommended_slugs" and cut backwards
-        # Start looking from the end to find the JSON block
+        # Regex to remove specific JSON patterns
+        # 1. Remove Code blocks containing recommended_slugs
+        clean_response = re.sub(r'```json\s*\{.*?"recommended_slugs".*?\}\s*```', '', clean_response, flags=re.DOTALL)
+        clean_response = re.sub(r'```\s*\{.*?"recommended_slugs".*?\}\s*```', '', clean_response, flags=re.DOTALL)
         
-        # Check if "recommended_slugs" exists at all
-        idx = clean_response.rfind("recommended_slugs")
-        if idx != -1:
-            # Look backwards from 'recommended_slugs' to find the opening '{'
-            # We scan backwards up to 300 chars to be safe (JSON header shouldn't be huge)
-            start_search = max(0, idx - 300)
-            brace_idx = clean_response.rfind("{", start_search, idx)
-            
-            if brace_idx != -1:
-                # We found the block start. verifying it looks like our target JSON
-                # Validate slightly to ensure we don't cut innocent text
-                # We assume the block is at the END of the message usually.
-                
-                # Cut everything from brace_idx to the end
-                potential_json = clean_response[brace_idx:]
-                # Double check closing brace exists
-                if "}" in potential_json:
-                     clean_response = clean_response[:brace_idx]
-
-        # 2. Cleanup artifacts like ```json or empty lines left behind
-        clean_response = re.sub(r'```json\s*$', '', clean_response).strip()
-        clean_response = re.sub(r'```\s*$', '', clean_response).strip()
+        # 2. Remove raw JSON object containing recommended_slugs
+        # Matches { ... "recommended_slugs": [...] ... }
+        clean_response = re.sub(r'\{.*?"recommended_slugs".*?\[.*?\].*?\}', '', clean_response, flags=re.DOTALL)
         
-        # 3. Final cleanup of trailing whitespace
+        # 3. Final cleanup of empty lines
         clean_response = clean_response.strip()
         
         self.storage.add_message(user_id, "user", query)

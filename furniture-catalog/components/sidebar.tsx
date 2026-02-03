@@ -275,7 +275,7 @@ function CollapsibleMaterials({
         <div className="mt-2 animate-in fade-in slide-in-from-left-2">
             <div className="flex items-center group">
                 <div className="flex-1" onClick={onViewMaterials}>
-                    <NavItem icon={<Boxes className="h-4 w-4" />} label="Материалы" collapsed={collapsed} />
+                    <NavItem icon={<Boxes className="h-4 w-4" />} label="Каталог" collapsed={collapsed} />
                 </div>
                 {!collapsed && (
                     <button
