@@ -30,7 +30,7 @@ export function UrlInputModal({ open, onOpenChange, onProductAdded }: UrlInputMo
 
         try {
             const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-            const response = await fetch(`${apiBaseUrl}/api/import-url/parse`, {
+            const response = await fetch(`${apiBaseUrl}/api/import-url/parse/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url, price_instruction: priceInstruction })
