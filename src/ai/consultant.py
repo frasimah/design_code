@@ -331,17 +331,18 @@ Format: {{ "indices": [0, 2, ...] }}
         # Clean up response (remove JSON block)
         clean_response = response_text
         
-        # If we successfully found JSON, remove exactly that block using its span
-        if json_match:
-            start, end = json_match.span()
-            clean_response = clean_response[:start] + clean_response[end:]
-        else:
-            # Fallback regex if nothing matched but there might be debris
-            clean_response = re.sub(r'\{.*?"recommended_slugs".*?\[.*?\].*?\}', '', clean_response, flags=re.DOTALL)
+        # Robust cleanup strategy: Remove ALL occurrences of JSON-like patterns containing recommended_slugs
+        # This handles cases with multiple blocks or slightly different formatting
         
-        # Double-tap: Force remove any trailing JSON block with recommended_slugs that might have survived
-        # This addresses the persistent issue where the block remains visible
-        clean_response = re.sub(r'\{\s*"recommended_slugs"\s*:[\s\S]*?\}\s*$', '', clean_response, flags=re.MULTILINE)
+        # 1. Remove Code blocks
+        clean_response = re.sub(r'```json\s*\{.*?"recommended_slugs".*?\}\s*```', '', clean_response, flags=re.DOTALL | re.IGNORECASE)
+        clean_response = re.sub(r'```\s*\{.*?"recommended_slugs".*?\}\s*```', '', clean_response, flags=re.DOTALL | re.IGNORECASE)
+        
+        # 2. Remove raw JSON objects
+        clean_response = re.sub(r'\{.*?"recommended_slugs".*?\[.*?\].*?\}', '', clean_response, flags=re.DOTALL | re.IGNORECASE)
+        
+        # 3. Aggressive trailing cleanup (Double-tap)
+        clean_response = re.sub(r'\{\s*"recommended_slugs"\s*:[\s\S]*?\}\s*$', '', clean_response, flags=re.MULTILINE | re.IGNORECASE)
         
         clean_response = clean_response.strip()
         
