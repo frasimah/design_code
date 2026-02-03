@@ -300,8 +300,8 @@ Format: {{ "indices": [0, 2, ...] }}
         import re
         recommended_slugs = []
         
-        # 1. Parse custom tag [[RECOMMENDED_SLUGS: ...]]
-        slugs_match = re.search(r'\[\[RECOMMENDED_SLUGS:(.*?)\]\]', response_text, re.DOTALL | re.IGNORECASE)
+        # 1. Parse custom tag [[RECOMMENDED_SLUGS: ...]] (Robust regex with whitespace support)
+        slugs_match = re.search(r'\[\[\s*RECOMMENDED_SLUGS\s*:\s*(.*?)\s*\]\]', response_text, re.DOTALL | re.IGNORECASE)
         if slugs_match:
              try:
                  slugs_str = slugs_match.group(1).strip()
@@ -316,7 +316,7 @@ Format: {{ "indices": [0, 2, ...] }}
              except Exception:
                  pass
         
-        # Legacy fallback: Try to find JSON if custom tag is missing (for backward compatibility or hallucination)
+        # 2. Legacy fallback: Try to find JSON if custom tag is missing
         if not recommended_slugs:
             json_match = re.search(r'\{.*?"recommended_slugs".*?\[.*?\].*?\}', response_text, re.DOTALL)
             if json_match:
@@ -325,6 +325,20 @@ Format: {{ "indices": [0, 2, ...] }}
                     recommended_slugs = data.get("recommended_slugs", [])
                 except Exception:
                     pass
+        
+        # 3. Text Extraction Fallback (Safety Net): Find "арт. XXX" in text
+        if not recommended_slugs:
+            # Find all (арт. XXX) or (art. XXX) patterns
+            # Matches: "арт. 123", "art. 123", "арт 123"
+            art_matches = re.findall(r'(?i)(?:арт\.?|art\.?)\s*([a-z0-9\-\.]+)', response_text)
+            seen_slugs = set()
+            for art in art_matches:
+                art_lower = art.lower().strip().rstrip('.') # Remove trailing dot if captured
+                if art_lower in self.slug_map:
+                    slug = self.slug_map[art_lower]
+                    if slug not in seen_slugs:
+                        recommended_slugs.append(slug)
+                        seen_slugs.add(slug)
 
         final_products = []
         if recommended_slugs:
