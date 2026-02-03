@@ -264,7 +264,7 @@ def fetch_all_wc_products() -> List[dict]:
 
 def fetch_wc_brands() -> List[dict]:
     """Fetch distinct brands from WooCommerce pwb-brand taxonomy with caching."""
-    cache_key = "wc_brands_list"
+    cache_key = "wc_brands_list_full"
     cached = _get_from_cache(cache_key, ttl=86400) # Cache for 24 hours
     if cached:
         return cached
@@ -277,17 +277,38 @@ def fetch_wc_brands() -> List[dict]:
         # Use WP API for taxonomies directly
         wp_base = BASE_URL.split("/wp-json/")[0].rstrip("/")
         wp_url = f"{wp_base}/wp-json/wp/v2/pwb-brand"
-        resp = requests.get(
-            wp_url,
-            auth=auth,
-            params={"per_page": 100, "hide_empty": True},
-            timeout=10
-        )
-        if resp.status_code == 200:
-            brands = [{"id": str(b["id"]), "name": b["name"]} for b in resp.json()]
-            _save_to_cache(cache_key, brands)
-            return brands
-        return []
+        
+        all_brands = []
+        page = 1
+        per_page = 100
+        
+        while True:
+            resp = requests.get(
+                wp_url,
+                auth=auth,
+                params={"per_page": per_page, "page": page, "hide_empty": True},
+                timeout=10
+            )
+            
+            if resp.status_code != 200:
+                print(f"Error fetching brands page {page}: {resp.status_code}")
+                break
+                
+            data = resp.json()
+            if not data:
+                break
+                
+            brands_page = [{"id": str(b["id"]), "name": b["name"]} for b in data]
+            all_brands.extend(brands_page)
+            
+            # Check pagination headers
+            total_pages = int(resp.headers.get('X-WP-TotalPages', 1))
+            if page >= total_pages:
+                break
+            page += 1
+
+        _save_to_cache(cache_key, all_brands)
+        return all_brands
     except Exception as e:
         print(f"WC Brand Fetch Error: {e}")
         return []
