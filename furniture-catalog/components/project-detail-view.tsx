@@ -1,7 +1,7 @@
 "use client";
 
 import { Product, api } from "@/lib/api";
-import { ArrowLeft, MoreHorizontal, Share, ArrowDownUp, Plus } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Share, ArrowDownUp, Plus, Pencil, Check, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { ProductCard } from "./product-card";
 import { useState } from "react";
@@ -28,18 +28,29 @@ interface ProjectDetailViewProps {
     onProductClick: (product: Product) => void;
     onRemoveItem?: (product: Product) => void;
     onProductAdded?: (product: Product) => void;
+    onRename?: (newName: string) => void;
     accessToken?: string;
 }
 
-export function ProjectDetailView({ project, onBack, onProductClick, onRemoveItem, onProductAdded, accessToken }: ProjectDetailViewProps) {
+export function ProjectDetailView({ project, onBack, onProductClick, onRemoveItem, onProductAdded, onRename, accessToken }: ProjectDetailViewProps) {
     const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<Product | null>(null);
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [editName, setEditName] = useState(project.name);
 
     const handleProductAdded = (product: Product) => {
         if (onProductAdded) {
             onProductAdded(product);
         }
     };
+
+    const handleSaveName = () => {
+        if (editName.trim() && editName !== project.name) {
+            onRename?.(editName.trim());
+        }
+        setIsEditingName(false);
+    };
+
     return (
         <div className="max-w-[calc(100%-2rem)] md:max-w-4xl mx-auto w-full py-8 pl-12 md:pl-0">
             {/* Header */}
@@ -56,8 +67,40 @@ export function ProjectDetailView({ project, onBack, onProductClick, onRemoveIte
                         </Button>
                     </div>
 
-                    <div className="flex-1 flex flex-col items-center text-center">
-                        <h1 className="text-[32px] font-bold text-[#141413] leading-tight mb-1">{project.name}</h1>
+                    <div className="flex-1 flex flex-col items-center text-center group">
+                        {isEditingName ? (
+                            <div className="flex items-center gap-2 mb-1">
+                                <input
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    className="text-[32px] font-bold text-[#141413] leading-tight text-center bg-transparent border-b-2 border-[#141413] focus:outline-none min-w-[200px]"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleSaveName();
+                                        if (e.key === 'Escape') setIsEditingName(false);
+                                    }}
+                                />
+                                <div className="flex gap-1">
+                                    <button onClick={handleSaveName} className="p-1 hover:text-green-600">
+                                        <Check className="h-5 w-5" />
+                                    </button>
+                                    <button onClick={() => setIsEditingName(false)} className="p-1 hover:text-red-500">
+                                        <X className="h-5 w-5" />
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center gap-3 mb-1 relative">
+                                <h1 className="text-[32px] font-bold text-[#141413] leading-tight">{project.name}</h1>
+                                <button
+                                    onClick={() => { setEditName(project.name); setIsEditingName(true); }}
+                                    className="p-1.5 text-muted-foreground/30 hover:text-foreground transition-colors absolute -right-8 opacity-0 group-hover:opacity-100"
+                                    title="Переименовать проект"
+                                >
+                                    <Pencil className="h-4 w-4" />
+                                </button>
+                            </div>
+                        )}
                         <div className="flex items-center gap-2 text-sm text-[#565552]">
                             <span>{project.items.length} пинов</span>
                         </div>

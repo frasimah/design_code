@@ -264,6 +264,24 @@ export default function Home() {
     setSelectedProduct(product);
   };
 
+  const handleRenameProject = async (newName: string) => {
+    if (!activeProjectId) return;
+
+    const updatedProjects = projects.map(p =>
+      p.id === activeProjectId ? { ...p, name: newName } : p
+    );
+
+    setProjects(updatedProjects);
+
+    if (accessToken) {
+      try {
+        await api.saveProjects(updatedProjects, accessToken);
+      } catch (error) {
+        console.error("Failed to save project name:", error);
+      }
+    }
+  };
+
   // Chat Send Handler (Refactored to accept args)
   const handleSend = async (text: string, file: File | null, previewImage: string | null) => {
     // Logic extracted from original handleSend, adapted to use args
@@ -436,6 +454,7 @@ export default function Home() {
             onProductClick={handleProductClick}
             onRemoveItem={(p) => activeProjectId && handleRemoveFromProject(activeProjectId, p)}
             onProductAdded={(p) => activeProjectId && handleAddToProject(activeProjectId, p)}
+            onRename={handleRenameProject}
             accessToken={accessToken}
           />
         )}

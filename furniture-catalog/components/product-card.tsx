@@ -15,6 +15,7 @@ interface ProductCardProps {
     visibleColumns?: {
         photo: boolean;
         name: boolean;
+        brand?: boolean;
         dimensions: boolean;
         materials: boolean;
         price: boolean;
@@ -173,7 +174,8 @@ export function ProductCard({
         // Standard spans: name (4), dimensions (3), materials (3), price (2) = 12
         const getGridTemplate = () => {
             const cols: string[] = [];
-            if (visibleColumns.name) cols.push("4fr");
+            if (visibleColumns.name) cols.push("3fr");
+            if (visibleColumns.brand) cols.push("2fr");
             if (visibleColumns.dimensions) cols.push("3fr");
             if (visibleColumns.materials) cols.push("3fr");
             if (visibleColumns.price) cols.push("2fr");
@@ -225,6 +227,15 @@ export function ProductCard({
                             <h3 className="font-medium text-[14px] text-[#141413] truncate" title={title}>
                                 {title}
                             </h3>
+                        </div>
+                    )}
+
+                    {/* Brand */}
+                    {visibleColumns.brand && (
+                        <div className="min-w-0">
+                            <p className="text-[13px] text-[#565552] truncate" title={product.brand}>
+                                {product.brand}
+                            </p>
                         </div>
                     )}
 

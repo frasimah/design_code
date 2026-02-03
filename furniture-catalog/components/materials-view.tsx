@@ -64,6 +64,7 @@ export function MaterialsView({
     const [visibleColumns, setVisibleColumns] = useState({
         photo: true,
         name: true,
+        brand: true,
         dimensions: true,
         materials: true,
         price: true
@@ -408,7 +409,8 @@ export function MaterialsView({
                                         style={{
                                             gridTemplateColumns: (() => {
                                                 const cols: string[] = [];
-                                                if (visibleColumns.name) cols.push("4fr");
+                                                if (visibleColumns.name) cols.push("3fr");
+                                                if (visibleColumns.brand) cols.push("2fr");
                                                 if (visibleColumns.dimensions) cols.push("3fr");
                                                 if (visibleColumns.materials) cols.push("3fr");
                                                 if (visibleColumns.price) cols.push("2fr");
@@ -417,6 +419,7 @@ export function MaterialsView({
                                         }}
                                     >
                                         {visibleColumns.name && <div>Наименование</div>}
+                                        {visibleColumns.brand && <div>Бренд</div>}
                                         {visibleColumns.dimensions && <div>Размеры</div>}
                                         {visibleColumns.materials && <div>Материалы</div>}
                                         {visibleColumns.price && <div className="text-right pr-4">Цена</div>}
@@ -493,6 +496,7 @@ export function MaterialsView({
                         {[
                             { id: 'photo', label: 'Фото' },
                             { id: 'name', label: 'Наименование' },
+                            { id: 'brand', label: 'Бренд' },
                             { id: 'dimensions', label: 'Размеры' },
                             { id: 'materials', label: 'Материалы' },
                             { id: 'price', label: 'Цена' }
