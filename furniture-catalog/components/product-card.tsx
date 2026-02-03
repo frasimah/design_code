@@ -26,12 +26,12 @@ interface ProductCardProps {
     accessToken?: string;
 }
 
-export function ProductCard({ 
-    product, 
-    onClick, 
-    onSave, 
-    className, 
-    viewMode = 'grid', 
+export function ProductCard({
+    product,
+    onClick,
+    onSave,
+    className,
+    viewMode = 'grid',
     visibleColumns = { photo: true, name: true, dimensions: true, materials: true, price: true },
     actionMode = 'save',
     onDelete,
@@ -369,6 +369,12 @@ export function ProductCard({
                 <h3 className="font-bold text-[15px] text-[#141413] leading-tight truncate" title={title}>
                     {title}
                 </h3>
+
+                {product.brand && (
+                    <p className="text-[12px] text-[#868685] truncate font-medium leading-tight uppercase">
+                        {product.brand}
+                    </p>
+                )}
 
                 <div className="flex flex-col gap-1 h-7 justify-center">
                     {isEditingPrice ? (
