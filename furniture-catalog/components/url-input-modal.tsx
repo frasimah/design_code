@@ -29,7 +29,7 @@ export function UrlInputModal({ open, onOpenChange, onProductAdded }: UrlInputMo
         setStatus("Инициализация парсера...");
 
         try {
-            const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+            const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
             const response = await fetch(`${apiBaseUrl}/api/import-url/parse/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
