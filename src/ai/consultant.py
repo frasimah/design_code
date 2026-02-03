@@ -331,16 +331,14 @@ Format: {{ "indices": [0, 2, ...] }}
         # Clean up response (remove JSON block)
         clean_response = response_text
         
-        # Regex to remove specific JSON patterns
-        # 1. Remove Code blocks containing recommended_slugs
-        clean_response = re.sub(r'```json\s*\{.*?"recommended_slugs".*?\}\s*```', '', clean_response, flags=re.DOTALL)
-        clean_response = re.sub(r'```\s*\{.*?"recommended_slugs".*?\}\s*```', '', clean_response, flags=re.DOTALL)
+        # If we successfully found JSON, remove exactly that block using its span
+        if json_match:
+            start, end = json_match.span()
+            clean_response = clean_response[:start] + clean_response[end:]
+        else:
+            # Fallback regex if nothing matched but there might be debris
+            clean_response = re.sub(r'\{.*?"recommended_slugs".*?\[.*?\].*?\}', '', clean_response, flags=re.DOTALL)
         
-        # 2. Remove raw JSON object containing recommended_slugs
-        # Matches { ... "recommended_slugs": [...] ... }
-        clean_response = re.sub(r'\{.*?"recommended_slugs".*?\[.*?\].*?\}', '', clean_response, flags=re.DOTALL)
-        
-        # 3. Final cleanup of empty lines
         clean_response = clean_response.strip()
         
         self.storage.add_message(user_id, "user", query)
