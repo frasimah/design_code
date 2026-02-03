@@ -88,15 +88,24 @@ export function ChatView({
     };
 
     const handleSubmit = async () => {
-        if ((!input.trim() && !pendingFile) || loading) return;
+        const textToSend = input;
+        const fileToSend = pendingFile;
+        const imagePreviewToSend = previewImage;
 
-        // Call parent handler
-        await onSend(input, pendingFile, previewImage);
+        if ((!textToSend.trim() && !fileToSend) || loading) return;
 
-        // Reset local state
+        // Reset local state immediately for better UX
         setInput("");
         setPreviewImage(null);
         setPendingFile(null);
+
+        // Call parent handler
+        try {
+            await onSend(textToSend, fileToSend, imagePreviewToSend);
+        } catch (error) {
+            console.error("Failed to send message:", error);
+            // Optional: restore input or show toast
+        }
     };
 
     return (

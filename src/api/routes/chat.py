@@ -68,9 +68,9 @@ async def chat(request: ChatRequest, user: Optional[dict] = Depends(get_current_
                 pass
         
         # Get relevant products for context to display them
+        # Get relevant products for context to display them
         relevant_products = consultant_result.get("products")
-        if not relevant_products:
-            relevant_products = consultant.search_products(request.query, n_results=30)
+        # Fallback removed: only show products explicitly recommended by AI logic
         
         # Flatten product structure for frontend
         flattened_products = []
