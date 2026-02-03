@@ -726,13 +726,43 @@ async def get_products(
 
 @router.get("/brands/", response_model=List[dict])
 async def get_brands(source: str = 'catalog'):
-    if source == 'woocommerce':
-        from src.api.services.woocommerce import fetch_wc_brands
-        return fetch_wc_brands()
+    all_brands = set()
+    requested_sources = source.split(',') if source else ['catalog']
     
-    # Filter brands by source preference if needed, or just return all local
-    brands = sorted(list(set(p.get('brand') for p in catalog_data if p.get('brand'))))
-    return [{"id": b, "name": b} for b in brands]
+    # 1. WooCommerce Brands
+    if 'woocommerce' in requested_sources or 'all' in requested_sources:
+        from src.api.services.woocommerce import fetch_wc_brands
+        wc_brands = fetch_wc_brands()
+        # Use Name as ID for unification
+        for b in wc_brands:
+            if b.get('name'):
+                all_brands.add(b['name'])
+
+    # 2. Local/Custom Catalog Brands
+    # If source is specific custom catalog, filter by it. 
+    # If 'catalog' or 'all' is requested, include all local brands.
+    local_needed = False
+    if 'all' in requested_sources or 'catalog' in requested_sources:
+        local_needed = True
+    else:
+        # Check if any custom source is requested
+        # For simplicity, if any non-wc source requested, we scan local cache
+        if any(s != 'woocommerce' for s in requested_sources):
+             local_needed = True
+
+    if local_needed:
+        # We can just scan the global catalog_data which contains all loaded local/custom products
+        # Optionally filter by source if we want strictness, but usually brands are shared context
+        # For strictness:
+        target_sources = set(requested_sources)
+        for p in catalog_data:
+            p_source = p.get('source', 'catalog')
+            if 'all' in requested_sources or 'catalog' in requested_sources or p_source in target_sources:
+                if p.get('brand'):
+                    all_brands.add(p['brand'])
+
+    sorted_brands = sorted(list(all_brands))
+    return [{"id": b, "name": b} for b in sorted_brands]
 
 @router.get("/categories/", response_model=List[dict])
 async def get_categories(source: str = 'catalog'):

@@ -125,6 +125,14 @@ def normalize_wc_product(wc_product: dict) -> dict:
         }
     }
 
+def get_brand_id_by_name(name: str) -> Optional[int]:
+    """Resolve brand name to WooCommerce taxonomy ID."""
+    brands = fetch_wc_brands()
+    for b in brands:
+        if b['name'].lower() == name.lower():
+            return b['id']
+    return None
+
 def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = None, category: Optional[str] = None, sort: Optional[str] = None, brand: Optional[str] = None) -> Tuple[List[dict], int]:
     """Fetch products from WooCommerce API with caching."""
     
@@ -157,7 +165,18 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
 
     if brand and brand != 'all':
         # Use taxonomy filter for pwb-brand
-        params["pwb-brand"] = brand
+        # If brand is digit, assume it's an ID. If string, try to resolve ID from name
+        if brand.isdigit():
+             params["pwb-brand"] = brand
+        else:
+             brand_id = get_brand_id_by_name(brand)
+             if brand_id:
+                 params["pwb-brand"] = brand_id
+             else:
+                 # If we can't find ID, passing name might not work but we can try slug logic or skip
+                 # WC usually requires ID for tax query.
+                 print(f"Warning: Could not resolve brand name '{brand}' to ID")
+                 pass
 
     if sort:
         if sort == 'price_asc':
