@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Product, api } from "@/lib/api";
-import { ArrowLeft, MoreHorizontal, Share, Download, Heart, BookmarkPlus, Trash2, GripVertical } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Share, Download, Heart, BookmarkPlus, Trash2, GripVertical, FileText } from "lucide-react";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Image from "next/image";
@@ -16,6 +16,7 @@ interface ProductFullViewProps {
 
 export function ProductFullView({ product, onBack, onSave }: ProductFullViewProps) {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+    const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
 
     // Combine main image and gallery
     // Combine all image sources
@@ -86,8 +87,8 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                             <Heart className="h-4 w-4" />
                             <span>Сохранить</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413]">
-                            <Share className="h-5 w-5" />
+                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413]" onClick={() => setIsDescriptionOpen(true)} title="Полное описание">
+                            <FileText className="h-5 w-5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413]" onClick={() => setIsDetailsOpen(true)}>
                             <MoreHorizontal className="h-5 w-5" />
@@ -303,6 +304,18 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                             )}
                         </div>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isDescriptionOpen} onOpenChange={setIsDescriptionOpen}>
+                <DialogContent className="bg-white p-6 max-w-2xl max-h-[80vh] overflow-y-auto rounded-xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold mb-4">Описание</DialogTitle>
+                    </DialogHeader>
+                    <div
+                        className="prose prose-sm max-w-none text-[#565552] leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: product.description || "Описание отсутствует" }}
+                    />
                 </DialogContent>
             </Dialog>
         </div>
