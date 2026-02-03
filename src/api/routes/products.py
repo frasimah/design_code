@@ -751,15 +751,27 @@ async def get_brands(source: str = 'catalog'):
              local_needed = True
 
     if local_needed:
-        # We can just scan the global catalog_data which contains all loaded local/custom products
-        # Optionally filter by source if we want strictness, but usually brands are shared context
-        # For strictness:
+        # Strict filtering matching get_products logic
         target_sources = set(requested_sources)
+        blacklist = {'DE-CO-DE', 'CATALOG', 'UNKNOWN', 'NONE'}
+        
         for p in catalog_data:
             p_source = p.get('source', 'catalog')
-            if 'all' in requested_sources or 'catalog' in requested_sources or p_source in target_sources:
-                if p.get('brand'):
-                    all_brands.add(p['brand'])
+            
+            should_include = False
+            if 'all' in target_sources:
+                should_include = True
+            elif p_source in target_sources:
+                should_include = True
+            # Handle implicit 'catalog' source mapping
+            elif 'catalog' in target_sources and (p_source == 'products_json' or p_source == 'catalog'):
+                should_include = True
+                
+            if should_include:
+                brand = p.get('brand')
+                if brand and brand.strip():
+                    if brand.strip().upper() not in blacklist:
+                        all_brands.add(brand.strip())
 
     sorted_brands = sorted(list(all_brands))
     return [{"id": b, "name": b} for b in sorted_brands]
