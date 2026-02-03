@@ -23,6 +23,16 @@ export default function SignInPage() {
                 </div>
 
                 <div className="space-y-3">
+                    {/* Demo Login Button */}
+                    {providers?.credentials && (
+                        <button
+                            onClick={() => signIn("credentials", { email: "admin@design.code", callbackUrl: "/" })}
+                            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-[#E6E2DD] bg-[#F5F5F4] text-[#141413] font-medium hover:bg-[#EBEAE8] transition-colors"
+                        >
+                            🔐 Войти как Демо-пользователь
+                        </button>
+                    )}
+
                     {providers?.google && (
                         <button
                             onClick={() => signIn("google", { callbackUrl: "/" })}
