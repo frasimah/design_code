@@ -300,25 +300,32 @@ Format: {{ "indices": [0, 2, ...] }}
         import re
         recommended_slugs = []
         
-        # 1. Try to find JSON in code blocks first
-        json_match = re.search(r'```json\s*({.*?})\s*```', response_text, re.DOTALL)
-        if not json_match:
-             json_match = re.search(r'```\s*({.*?})\s*```', response_text, re.DOTALL)
+        # 1. Parse custom tag [[RECOMMENDED_SLUGS: ...]]
+        slugs_match = re.search(r'\[\[RECOMMENDED_SLUGS:(.*?)\]\]', response_text, re.DOTALL | re.IGNORECASE)
+        if slugs_match:
+             try:
+                 slugs_str = slugs_match.group(1).strip()
+                 if slugs_str:
+                     # Split by comma and clean up quotes/whitespace if model adds them
+                     raw_slugs = slugs_str.split(',')
+                     for s in raw_slugs:
+                         # Remove quotes if present
+                         clean_s = s.strip().strip('"').strip("'")
+                         if clean_s:
+                             recommended_slugs.append(clean_s)
+             except Exception:
+                 pass
         
-        # 2. If not found, try to find raw JSON with "recommended_slugs"
-        if not json_match:
-             # Look for { ... "recommended_slugs": [ ... ] ... }
-             raw_pattern = r'(\{.*?"recommended_slugs".*?\[.*?\].*?\})'
-             json_match = re.search(raw_pattern, response_text, re.DOTALL)
+        # Legacy fallback: Try to find JSON if custom tag is missing (for backward compatibility or hallucination)
+        if not recommended_slugs:
+            json_match = re.search(r'\{.*?"recommended_slugs".*?\[.*?\].*?\}', response_text, re.DOTALL)
+            if json_match:
+                try:
+                    data = json.loads(json_match.group(0))
+                    recommended_slugs = data.get("recommended_slugs", [])
+                except Exception:
+                    pass
 
-        if json_match:
-            try:
-                json_str = json_match.group(1)
-                data = json.loads(json_str)
-                recommended_slugs = data.get("recommended_slugs", [])
-            except Exception:
-                pass
-        
         final_products = []
         if recommended_slugs:
             relevant_map = {p['slug']: p for p in relevant}
@@ -328,26 +335,26 @@ Format: {{ "indices": [0, 2, ...] }}
         else:
              final_products = [] 
 
-        # Clean up response (remove JSON block)
+        # Clean up response (REMOVE TAGS)
         clean_response = response_text
         
-        # Robust cleanup strategy: Remove ALL occurrences of JSON-like patterns containing recommended_slugs
-        # This handles cases with multiple blocks or slightly different formatting
+        # 1. Remove custom tags
+        if slugs_match:
+            start, end = slugs_match.span()
+            clean_response = clean_response[:start] + clean_response[end:]
         
-        # 1. Remove Code blocks
+        clean_response = re.sub(r'\[\[RECOMMENDED_SLUGS:.*?\]\]', '', clean_response, flags=re.DOTALL | re.IGNORECASE)
+        
+        # 2. Legacy JSON cleanup (Defensive)
         clean_response = re.sub(r'```json\s*\{.*?"recommended_slugs".*?\}\s*```', '', clean_response, flags=re.DOTALL | re.IGNORECASE)
         clean_response = re.sub(r'```\s*\{.*?"recommended_slugs".*?\}\s*```', '', clean_response, flags=re.DOTALL | re.IGNORECASE)
-        
-        # 2. Remove raw JSON objects
         clean_response = re.sub(r'\{.*?"recommended_slugs".*?\[.*?\].*?\}', '', clean_response, flags=re.DOTALL | re.IGNORECASE)
-        
-        # 3. Aggressive trailing cleanup (Double-tap)
         clean_response = re.sub(r'\{\s*"recommended_slugs"\s*:[\s\S]*?\}\s*$', '', clean_response, flags=re.MULTILINE | re.IGNORECASE)
         
         clean_response = clean_response.strip()
         
         self.storage.add_message(user_id, "user", query)
-        self.storage.add_message(user_id, "model", response_text) # Save full response with JSON for debugging/future use
+        self.storage.add_message(user_id, "model", response_text) # Save full raw response
         
         return {
             "answer": clean_response,
