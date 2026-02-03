@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Product, api } from "@/lib/api";
-import { ArrowLeft, MoreHorizontal, Share, Download, Heart, BookmarkPlus, Trash2, GripVertical, FileText } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Share, Download, Heart, BookmarkPlus, Trash2, FileText } from "lucide-react";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Image from "next/image";
@@ -143,37 +143,7 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                                 className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
                                 sizes="(max-width: 768px) 100vw, 33vw"
                             />
-                            {/* Reorder Button - Left side */}
-                            <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                <Button
-                                    size="icon"
-                                    variant="secondary"
-                                    className="h-8 w-8 rounded-full bg-white/90 hover:bg-white text-[#141413] shadow-sm backdrop-blur-sm"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (onSave && images.length > 1) {
-                                            const newImages = [...images];
-                                            // Move image one position to the left (earlier in array)
-                                            // If first, wrap to end
-                                            if (idx === 0) {
-                                                // Move first to end
-                                                const [first] = newImages.splice(0, 1);
-                                                newImages.push(first);
-                                            } else {
-                                                // Swap with previous
-                                                [newImages[idx - 1], newImages[idx]] = [newImages[idx], newImages[idx - 1]];
-                                            }
-                                            onSave({
-                                                ...product,
-                                                images: newImages,
-                                                main_image: newImages[0]
-                                            });
-                                        }
-                                    }}
-                                >
-                                    <GripVertical className="h-4 w-4" />
-                                </Button>
-                            </div>
+
                             {/* Action Buttons - Right side */}
                             <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                 {/* Delete Photo */}
