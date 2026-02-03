@@ -157,6 +157,81 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
         "page": page,
         "status": "publish"
     }
+    # Try to load from FULL CACHE first
+    full_cache_path = DATA_DIR / "wc_full_cache.json"
+    if full_cache_path.exists():
+        try:
+            # Memory caching for the file read could be added here to avoid reading disk on every request
+            # For now, let's read distinct if not too heavy. 2-3MB is fine.
+            # Ideally use a global variable or lru_cache for the file content loader.
+            with open(full_cache_path, 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+                all_items = cache_data.get('products', [])
+                
+            # Filter in Python
+            filtered_items = []
+            
+            # Resolve Brand ID if needed
+            target_brand_id = None
+            if brand and brand != 'all':
+                if brand.isdigit():
+                    target_brand_id = int(brand)
+                else:
+                    brand_id_str = get_brand_id_by_name(brand)
+                    if brand_id_str:
+                        target_brand_id = int(brand_id_str)
+
+            # Filtering Loop
+            for p in all_items:
+                # 1. Search Query
+                if query:
+                    q_str = query.lower()
+                    if q_str not in p.get('name', '').lower() and q_str not in p.get('sku', '').lower():
+                        continue
+                
+                # 2. Category (Basic check, might need strict ID check depending on data)
+                if category and category != 'all':
+                    # Check if category ID or Slug matches
+                    # p['categories'] is list of dicts {id, name, slug}
+                    cats = p.get('categories', [])
+                    match = False
+                    for c in cats:
+                        if str(c.get('id')) == category or c.get('slug') == category:
+                            match = True
+                            break
+                    if not match:
+                        continue
+
+                # 3. Brand
+                if target_brand_id:
+                     p_brands = p.get('brands', [])
+                     if not any(b.get('id') == target_brand_id for b in p_brands):
+                         continue
+                
+                filtered_items.append(normalize_wc_product(p))
+            
+            # Sorting
+            if sort:
+                if sort == 'price_asc':
+                    filtered_items.sort(key=lambda x: float(x.get('parameters', {}).get('Цена', '0').replace(' EUR', '') or 0))
+                elif sort == 'price_desc':
+                    filtered_items.sort(key=lambda x: float(x.get('parameters', {}).get('Цена', '0').replace(' EUR', '') or 0), reverse=True)
+                elif sort == 'date_desc':
+                    pass # Assuming already sorted by date or complex logic needed
+            
+            # Pagination
+            total_items = len(filtered_items)
+            start = (page - 1) * limit
+            end = start + limit
+            page_slice = filtered_items[start:end]
+            
+            return page_slice, total_items
+
+        except Exception as e:
+            print(f"Error reading local WC cache: {e}. Falling back to API.")
+
+    # FALLBACK TO REMOTE API (Old Logic)
+    
     if query:
         params["search"] = query
     
@@ -164,19 +239,19 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
         params["category"] = category
 
     if brand and brand != 'all':
-        # Use taxonomy filter for pwb-brand
-        # If brand is digit, assume it's an ID. If string, try to resolve ID from name
+        # Resolve brand ID
+        target_brand_id = None
         if brand.isdigit():
-             params["pwb-brand"] = brand
+             target_brand_id = int(brand)
         else:
-             brand_id = get_brand_id_by_name(brand)
-             if brand_id:
-                 params["pwb-brand"] = brand_id
-             else:
-                 # If we can't find ID, passing name might not work but we can try slug logic or skip
-                 # WC usually requires ID for tax query.
-                 print(f"Warning: Could not resolve brand name '{brand}' to ID")
-                 pass
+             brand_id_str = get_brand_id_by_name(brand)
+             if brand_id_str:
+                 target_brand_id = int(brand_id_str)
+        
+        if target_brand_id:
+             try:
+                 params["pwb-brand"] = target_brand_id 
+             except: pass
 
     if sort:
         if sort == 'price_asc':
@@ -185,7 +260,10 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
         elif sort == 'price_desc':
             params["orderby"] = "price"
             params["order"] = "desc"
-        
+        elif sort == 'date_desc':
+            params["orderby"] = "date"
+            params["order"] = "desc"
+
     try:
         response = requests.get(
             f"{BASE_URL}/products",
@@ -196,12 +274,11 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
         if response.status_code == 200:
             total = int(response.headers.get('X-WP-Total', 0))
             products = [normalize_wc_product(p) for p in response.json()]
-            result = (products, total)
-            
-            # Cache the result
-            _save_to_cache(cache_key, result)
-            return result
-        print(f"WC API Error: {response.status_code} - {response.text}")
+            # Cache the remote page result
+            _save_to_cache(cache_key, (products, total))
+            return products, total
+        
+        print(f"WC API Error: {response.status_code}")
         return [], 0
     except Exception as e:
         print(f"WC API Exception: {e}")
@@ -261,6 +338,36 @@ def fetch_all_wc_products() -> List[dict]:
     
     print(f"Total WooCommerce products fetched: {len(all_products)}")
     return all_products
+
+def get_active_wc_brands() -> List[dict]:
+    """Get brands that actually exist in the cached products."""
+    full_cache_path = DATA_DIR / "wc_full_cache.json"
+    if full_cache_path.exists():
+        try:
+            with open(full_cache_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                products = data.get('products', [])
+            
+            active_brands = set()
+            for p in products:
+                # Check 'brands' list
+                for b in p.get('brands', []):
+                    if b.get('name'):
+                        active_brands.add(b['name'])
+                
+                # Also check attributes if brands are missing there
+                if not p.get('brands') and p.get('attributes'):
+                     for a in p['attributes']:
+                         if 'brand' in a.get('name', '').lower():
+                             for opt in a.get('options', []):
+                                 active_brands.add(opt)
+
+            return [{"id": b, "name": b} for b in sorted(list(active_brands))]
+        except Exception as e:
+            print(f"Error loading active brands from cache: {e}")
+            
+    # Fallback to fetching all definitions if cache missing
+    return fetch_wc_brands()
 
 def fetch_wc_brands() -> List[dict]:
     """Fetch distinct brands from WooCommerce pwb-brand taxonomy with caching."""

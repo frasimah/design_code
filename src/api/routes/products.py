@@ -731,8 +731,8 @@ async def get_brands(source: str = 'catalog'):
     
     # 1. WooCommerce Brands
     if 'woocommerce' in requested_sources or 'all' in requested_sources:
-        from src.api.services.woocommerce import fetch_wc_brands
-        wc_brands = fetch_wc_brands()
+        from src.api.services.woocommerce import get_active_wc_brands
+        wc_brands = get_active_wc_brands()
         # Use Name as ID for unification
         for b in wc_brands:
             if b.get('name'):
