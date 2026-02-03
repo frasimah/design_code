@@ -49,8 +49,30 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                     <div className="flex-1 flex flex-col items-center text-center">
                         <h1 className="text-[32px] font-bold text-[#141413] leading-tight mb-1">{product.name}</h1>
                         <div className="flex items-center gap-2 text-sm text-[#565552]">
-                            {/* Display price if available */}
-                            <span>{product.price ? `${product.price.toLocaleString()} ${product.currency || 'RUB'}` : "Цена не указана"}</span>
+                            {/* Display price if available, with fallback to parameters */}
+                            {(() => {
+                                let price = product.price;
+                                let currency = product.currency || 'EUR';
+
+                                if (!price) {
+                                    // Fallback to parameters
+                                    const params = product.parameters || {};
+                                    const priceParam = params['Цена'] || params['Price'];
+                                    if (priceParam) {
+                                        const parsed = parseFloat(String(priceParam).replace(',', '.').replace(/[^\d.]/g, ''));
+                                        if (!isNaN(parsed) && parsed > 0) {
+                                            price = parsed;
+                                        } else {
+                                            // If parse fails, return raw string if it looks like price?
+                                            // simpler to prioritize parsed.
+                                        }
+                                    }
+                                }
+
+                                return (
+                                    <span>{price ? `${price.toLocaleString()} ${currency}` : "Цена не указана"}</span>
+                                );
+                            })()}
                         </div>
                     </div>
 
