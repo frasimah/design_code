@@ -48,6 +48,12 @@ if GEMINI_PROXY_URL:
 DATA_DIR = BASE_DIR / "data"
 PRODUCTS_JSON_PATH = PROJECT_ROOT / "products.json"
 
+# Check for production server path override
+SERVER_PRODUCTS_PATH = Path("/var/www/design_code/data/custom/products.json")
+if SERVER_PRODUCTS_PATH.exists():
+    print(f"Using server products path: {SERVER_PRODUCTS_PATH}")
+    PRODUCTS_JSON_PATH = SERVER_PRODUCTS_PATH
+
 UPLOAD_DIR = DATA_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 RAW_DATA_DIR = DATA_DIR / "raw"
