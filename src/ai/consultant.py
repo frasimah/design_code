@@ -326,36 +326,31 @@ Format: {{ "indices": [0, 2, ...] }}
         clean_response = response_text
         import re
         
-        # 1. Try generic code block removal
-        if "```json" in clean_response:
-             clean_response = clean_response.split("```json")[0].strip()
-        elif "```" in clean_response:
-             parts = clean_response.split("```")
-             if len(parts) >= 3:
-                 clean_response = parts[0].strip()
-                 
-        # 2. Aggressive fallback: cleanup raw JSON if it leaked without backticks
-        # Simple approach: find line with { before recommended_slugs and cut from there
+        # 1. Remove JSON in code blocks (```json ... ``` or ``` ... ```)
+        clean_response = re.sub(r'```(?:json)?\s*\{[^}]*"recommended_slugs"[^}]*\}\s*```', '', clean_response, flags=re.DOTALL)
+        
+        # 2. Remove raw JSON block with recommended_slugs (handles multi-line)
+        # Pattern: { followed by optional whitespace/newlines, then "recommended_slugs" ... }
+        clean_response = re.sub(r'\{\s*"recommended_slugs"\s*:\s*\[.*?\]\s*\}', '', clean_response, flags=re.DOTALL)
+        
+        # 3. Fallback: line-based removal if JSON leaked in unusual format
         lines = clean_response.split('\n')
         cut_index = None
+        in_json = False
         for i, line in enumerate(lines):
             stripped = line.strip()
-            if stripped == '{' or stripped.startswith('{"recommended_slugs'):
-                # Check if recommended_slugs appears in remaining lines
-                remaining = '\n'.join(lines[i:])
-                if 'recommended_slugs' in remaining:
-                    cut_index = i
-                    break
-            elif '"recommended_slugs"' in line:
-                # JSON starts on previous line with just {
-                if i > 0 and lines[i-1].strip() == '{':
-                    cut_index = i - 1
-                else:
-                    cut_index = i
+            if stripped == '{' and i + 1 < len(lines) and 'recommended_slugs' in lines[i + 1]:
+                cut_index = i
+                break
+            elif 'recommended_slugs' in stripped and stripped.startswith('{'):
+                cut_index = i
                 break
         
         if cut_index is not None:
             clean_response = '\n'.join(lines[:cut_index]).strip()
+        
+        # 4. Final cleanup: remove any trailing empty lines or stray brackets
+        clean_response = clean_response.rstrip().rstrip('{').rstrip()
         
         self.storage.add_message(user_id, "user", query)
         self.storage.add_message(user_id, "model", response_text) # Save full response with JSON for debugging/future use
