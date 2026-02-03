@@ -339,6 +339,10 @@ Format: {{ "indices": [0, 2, ...] }}
             # Fallback regex if nothing matched but there might be debris
             clean_response = re.sub(r'\{.*?"recommended_slugs".*?\[.*?\].*?\}', '', clean_response, flags=re.DOTALL)
         
+        # Double-tap: Force remove any trailing JSON block with recommended_slugs that might have survived
+        # This addresses the persistent issue where the block remains visible
+        clean_response = re.sub(r'\{\s*"recommended_slugs"\s*:[\s\S]*?\}\s*$', '', clean_response, flags=re.MULTILINE)
+        
         clean_response = clean_response.strip()
         
         self.storage.add_message(user_id, "user", query)
