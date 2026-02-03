@@ -247,6 +247,11 @@
         {% if loop.first %}
         <header class="header">
             <div class="header-left">
+                {% if company_name %}
+                <div class="company-name"
+                    style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                    {{ company_name }}</div>
+                {% endif %}
                 <h1>{{ project_name }}</h1>
                 <div class="project-subtitle">Коммерческое предложение</div>
             </div>
@@ -280,7 +285,8 @@
                     </div>
 
                     <div class="specs-container">
-                        {% if product.brand %}
+                        {% if product.brand and product.brand|lower != 'de-co-de' and product.brand|lower != 'catalog'
+                        %}
                         <div class="spec-row">
                             <span class="spec-label">Бренд</span>
                             <span class="spec-value">{{ product.brand }}</span>
