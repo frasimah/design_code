@@ -241,28 +241,21 @@ export function ChatView({
                                 )}
 
                                 {/* Text Content */}
-                                {msg.content && (
-                                    <div className={cn(
-                                        "font-serif text-[17px] leading-relaxed tracking-wide antialiased max-w-2xl",
-                                        msg.role === "user" ? "font-sans font-semibold text-[15px] text-[#141413] mt-1.5" : "text-[#141413] prose prose-neutral prose-p:leading-relaxed prose-strong:font-semibold prose-strong:text-[#141413]"
-                                    )}>
-                                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                                    </div>
-                                )}
+                                {msg.content && (() => {
+                                    // Clean RECOMMENDED_SLUGS tag from content
+                                    const cleanContent = msg.content.replace(/\[\[\s*RECOMMENDED_SLUGS\s*:\s*.*?\s*\]\]/gi, '').trim();
+                                    return cleanContent ? (
+                                        <div className={cn(
+                                            "font-serif text-[17px] leading-relaxed tracking-wide antialiased max-w-2xl",
+                                            msg.role === "user" ? "font-sans font-semibold text-[15px] text-[#141413] mt-1.5" : "text-[#141413] prose prose-neutral prose-p:leading-relaxed prose-strong:font-semibold prose-strong:text-[#141413]"
+                                        )}>
+                                            <ReactMarkdown>{cleanContent}</ReactMarkdown>
+                                        </div>
+                                    ) : null;
+                                })()}
 
                                 {msg.blocks?.map((block, bIdx) => (
                                     <div key={bIdx} className="w-full mt-2 select-none">
-                                        {block.title && (
-                                            <div className="flex items-center justify-between mb-4 px-1">
-                                                <div className="text-[13px] font-medium text-[#141413] flex items-center gap-2 border border-[#1f1e1d1a] bg-white rounded-md px-2 py-1 shadow-sm">
-                                                    <span className="font-bold">🧱</span>
-                                                    {block.title}
-                                                </div>
-                                                <div className="flex gap-2 opacity-40 hover:opacity-100 transition-opacity">
-                                                    <Code2 className="h-4 w-4 cursor-pointer" />
-                                                </div>
-                                            </div>
-                                        )}
                                         <HorizontalCarousel
                                             products={block.products}
                                             onProductClick={onProductClick}
