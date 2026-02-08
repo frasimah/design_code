@@ -63,7 +63,25 @@ class Consultant:
                 # Добавляем артикулы в карту
                 for p in self.catalog.values():
                     if p.get('article'):
-                        self.slug_map[str(p['article']).lower()] = p['slug']
+                        art = str(p['article']).lower().strip()
+                        self.slug_map[art] = p['slug']
+                        
+                        # Handle "Reference: 637..." cleaning
+                        if art.startswith("reference:"):
+                             clean_art = art.replace("reference:", "").strip()
+                             # Take first part if it has spaces (e.g. "637 utrecht sofa" -> "637")
+                             # But be careful not to over-simplify.
+                             self.slug_map[clean_art] = p['slug']
+                             
+                             # Also just the first word (often the real SKU code)
+                             first_word = clean_art.split(' ')[0]
+                             if len(first_word) > 2: # Avoid super short noise
+                                 self.slug_map[first_word] = p['slug']
+                        elif " " in art:
+                             # Try first word as SKU if it looks like code
+                             first_word = art.split(' ')[0]
+                             if len(first_word) > 2:
+                                 self.slug_map[first_word] = p['slug']
         
         # Инициализация хранилища истории
         from src.storage.chat_storage import ChatStorage
@@ -311,8 +329,8 @@ class Consultant:
 
         # 3. Text Extraction Fallback (Safety Net): Find "арт. XXX" in text
         if not recommended_slugs:
-            # Find all (арт. XXX) or (art. XXX) patterns
-            art_matches = re.findall(r'(?i)(?:арт\.?|art\.?)\s*([a-z0-9\-\.]+)', response_text)
+            # Find all (арт. XXX) or (art. XXX) patterns, optionally with Reference: prefix
+            art_matches = re.findall(r'(?i)(?:арт\.?|art\.?)\s*(?:Reference:?)?\s*([a-z0-9\-\.]+)', response_text)
             seen_slugs = set()
             for art in art_matches:
                 art_lower = art.lower().strip().rstrip('.') 
@@ -334,13 +352,27 @@ class Consultant:
                     final_products.append(relevant_map[slug])
                     
         # Fallback: if no recommended slugs found (or none match relevant), 
-        # but we have relevant results, maybe we should return them?
-        # The original logic seemed to only return specific ones if recommended.
+        # but we have relevant results, checks their distance to ensure relevance.
         if not final_products and relevant:
-             # Fallback: if LLM didn't explicitly recommend slugs but we have search results,
-             # return the top results so the user sees something.
-             # This is important if LLM forgets to use the tag.
-             final_products = relevant[:5]
+             # Filter by distance if available
+             high_relevance_products = []
+             for r in relevant:
+                 # Distance threshold (tweak as needed, 0.4 is usually decent for "relevant-ish")
+                 # Lower is better for cosine distance
+                 dist = r.get('distance', 1.0)
+                 if dist < 0.38:
+                     high_relevance_products.append(r)
+             
+             if high_relevance_products:
+                 # Return top matches only (limit to 3 to be focused)
+                 final_products = high_relevance_products[:3]
+             else:
+                 # If nothing is highly relevant, return nothing (better than garbage)
+                 # or return top 1 if it's kinda close?
+                 # Let's return nothing to encourage AI to say "I don't know" or "Not found",
+                 # unless strict mode is off. But user complained about wrong 3 products.
+                 # So returning empty is safer.
+                 final_products = []
         
         self.storage.add_message(user_id, "user", query)
         self.storage.add_message(user_id, "model", response_text) # Save full raw response

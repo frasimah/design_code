@@ -879,7 +879,8 @@ async def update_product_image(slug: str, request: UpdateImageRequest, user: dic
     if source_id == 'catalog':
         file_path = PRODUCTS_JSON_PATH
     elif source_id == 'woocommerce':
-        raise HTTPException(status_code=400, detail="Cannot edit WooCommerce products")
+        # Allow editing WooCommerce cache
+        file_path = DATA_DIR / "processed" / "full_catalog.json"
     elif source_id == 'custom_links':
         file_path = CUSTOM_CATALOGS_DIR / "custom_links.json"
     else:

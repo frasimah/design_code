@@ -63,13 +63,27 @@ def normalize_wc_product(wc_product: dict) -> dict:
     # Extract brand (check taxonomy 'brands' first, then attributes)
     brand = "De-co-de"
     wc_brands = wc_product.get('brands', [])
-    if wc_brands and isinstance(wc_brands, list):
+    if wc_brands and isinstance(wc_brands, list) and len(wc_brands) > 0:
         brand = wc_brands[0].get('name', "De-co-de")
     else:
+        # Check attributes for brand-like fields
+        found_brand = False
         for attr in wc_product.get('attributes', []):
-            if attr['name'].lower() in ['brand', 'manufacturer', 'бренд', 'производитель']:
+            name_lower = attr['name'].lower()
+            slug_lower = attr.get('slug', '').lower()
+            
+            if name_lower in ['brand', 'manufacturer', 'бренд', 'производитель'] or \
+               slug_lower in ['pa_brand', 'pa_manufacturer', 'brand']:
                 if attr['options']:
                     brand = attr['options'][0]
+                    found_brand = True
+                    break
+        
+        # Check meta_data if not found in attributes
+        if not found_brand:
+            for meta in wc_product.get('meta_data', []):
+                if meta.get('key') == 'brand' or meta.get('key') == '_brand':
+                    brand = meta.get('value')
                     break
                 
     # Extract price

@@ -25,68 +25,55 @@ def fetch_all_products():
     
     while True:
         print(f"Fetching page {page}...")
-        try:
-            response = requests.get(
-                f"{BASE_URL}/products",
-                auth=HTTPBasicAuth(WC_CONSUMER_KEY, WC_CONSUMER_SECRET),
-                params={"per_page": per_page, "page": page},
-                timeout=30
-            )
-            
-            if response.status_code != 200:
-                print(f"Error fetching page {page}: {response.status_code} - {response.text}")
-                break
+        # Retry logic
+        retries = 3
+        success = False
+        while retries > 0:
+            try:
+                response = requests.get(
+                    f"{BASE_URL}/products",
+                    auth=HTTPBasicAuth(WC_CONSUMER_KEY, WC_CONSUMER_SECRET),
+                    params={"per_page": per_page, "page": page},
+                    timeout=60
+                )
                 
-            products = response.json()
-            if not products:
-                break
-                
-            all_products.extend(products)
-            print(f"Fetched {len(products)} products. Total so far: {len(all_products)}")
+                if response.status_code != 200:
+                    print(f"Error fetching page {page}: {response.status_code} - {response.text}")
+                    # If 400/401/404 maybe don't retry? But 500/502/timeout yes.
+                    # For now, let's just retry on error if it's not 4xx (except 429)
+                    if response.status_code < 500 and response.status_code != 429:
+                        break
+                else:
+                    success = True
+                    break
+                    
+            except Exception as e:
+                print(f"Exception fetching page {page} (attempt {4-retries}): {e}")
+                import time
+                time.sleep(5)
             
-            page += 1
-            
-        except Exception as e:
-            print(f"Exception fetching page {page}: {e}")
+            retries -= 1
+        
+        if not success:
+           print(f"Failed to fetch page {page} after retries.")
+           # Don't break completely? Or maybe we should?
+           # If we miss a page, we miss data. Better to break and fail loud.
+           break
+
+        products = response.json()
+        if not products:
             break
+            
+        all_products.extend(products)
+        print(f"Fetched {len(products)} products. Total so far: {len(all_products)}")
+        
+        page += 1
+            
             
     print(f"Finished fetching. Total raw products: {len(all_products)}")
     return all_products
 
-def normalize_product(wc_product):
-    """Convert WooCommerce product structure to our app's Product schema."""
-    
-    # Extract images
-    images = [img['src'] for img in wc_product.get('images', [])]
-    
-    # Extract brand (attribute or default)
-    brand = "De-co-de"
-    for attr in wc_product.get('attributes', []):
-        if attr['name'].lower() in ['brand', 'manufacturer', 'бренд', 'производитель']:
-            if attr['options']:
-                brand = attr['options'][0]
-                break
-                
-    # Extract price
-    price = wc_product.get('regular_price') or wc_product.get('price') or ""
-    if price:
-        price = f"{price} ₽"
-        
-    # Create normalized object
-    return {
-        "slug": wc_product.get('slug'),
-        "name": wc_product.get('name'),
-        "title": wc_product.get('name'), # Use name as title
-        "brand": brand,
-        "images": images,
-        "main_image": images[0] if images else None,
-        "source": "woocommerce", # critical field for filtering
-        "description": wc_product.get('description', '').replace('<p>', '').replace('</p>', '\n').strip(),
-        "article": wc_product.get('sku') or str(wc_product.get('id')),
-        "parameters": {
-            "Цена": price
-        }
-    }
+from src.api.services.woocommerce import normalize_wc_product as normalize_product
 
 def save_catalog(products):
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
