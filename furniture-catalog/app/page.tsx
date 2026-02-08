@@ -327,6 +327,57 @@ export default function Home() {
           results = response.products || [];
           simulationUrl = response.simulation_image || null;
 
+          // Parse JSON from text if products are missing but JSON is present
+          console.log("DEBUG: Raw chatResponse:", chatResponse);
+
+          // Try to find JSON block with recommended_slugs
+          // 1. Look for markdown code block: ```json ... ```
+          // 2. Look for raw JSON object: { ... "recommended_slugs" ... }
+          let jsonMatch = chatResponse.match(/```json\s*(\{[\s\S]*?"recommended_slugs"[\s\S]*?\})\s*```/);
+
+          if (!jsonMatch) {
+            // Fallback: match any JSON-like object containing "recommended_slugs"
+            // nesting braces might be tricky with regex, but let's try a simple one for the top level
+            jsonMatch = chatResponse.match(/(\{[\s\S]*?"recommended_slugs"[\s\S]*?\})/);
+          }
+
+          console.log("DEBUG: Regex match result:", jsonMatch);
+
+          if (jsonMatch) {
+            try {
+              const jsonStr = jsonMatch[1] || jsonMatch[0];
+              const parsed = JSON.parse(jsonStr);
+              if (parsed.recommended_slugs && Array.isArray(parsed.recommended_slugs)) {
+                // If we have slugs but no products, we might need to fetch them (or they might be in results already)
+                if (results.length === 0) {
+                  console.log("DEBUG: Found slugs but no products. Slugs:", parsed.recommended_slugs);
+                  // Start fetching products by slug
+                  try {
+                    // Create a search string with the slugs to find them
+                    // Or better, use a direct lookup if possible.
+                    // Since we don't have getProductsBySlugs, we will try to find them in initialProducts
+                    // or just rely on the user seeing the text for now.
+                    // BUT better to try to fetch them if possible.
+
+                    // Let's try to fetch them using the first slug as a search query just to get SOMETHING for now
+                    // Or if we can filter.
+                    // Actually, api.getProducts has 'search' param.
+
+                    // Warning: making multiple calls might be slow.
+                    // Let's just log for now to confirm we get here.
+                  } catch (err) {
+                    console.error("DEBUG: Failed to fetch products by slug", err);
+                  }
+                }
+
+                // Clean the response text by removing the JSON block
+                chatResponse = chatResponse.replace(jsonMatch[0], "").trim();
+              }
+            } catch (e) {
+              console.error("Failed to parse JSON from response", e);
+            }
+          }
+
           const assistantMsg: Message = {
             role: "assistant",
             content: chatResponse || "Вот что я думаю по этому поводу:",
@@ -392,19 +443,49 @@ export default function Home() {
         }));
 
       const response = await api.chat(text, history, undefined, accessToken);
+      let assistantText = response.answer;
+      let products = response.products || [];
+
+      // Parse JSON from text logic
+      // Regex to capture ```json ... ``` or just { ... } if it contains recommended_slugs
+      console.log("DEBUG TEXT: Raw assistantText:", assistantText);
+
+      let jsonMatch = assistantText.match(/```json\s*(\{[\s\S]*?"recommended_slugs"[\s\S]*?\})\s*```/);
+      if (!jsonMatch) {
+        jsonMatch = assistantText.match(/(\{[\s\S]*?"recommended_slugs"[\s\S]*?\})/);
+      }
+
+      if (jsonMatch) {
+        try {
+          const jsonStr = jsonMatch[1] || jsonMatch[0];
+          console.log("DEBUG TEXT: Parsing JSON string:", jsonStr);
+          const parsed = JSON.parse(jsonStr);
+
+          if (parsed.recommended_slugs && Array.isArray(parsed.recommended_slugs)) {
+            if (products.length === 0 && parsed.recommended_slugs.length > 0) {
+              console.log("DEBUG TEXT: Found slugs:", parsed.recommended_slugs);
+            }
+
+            // Remove the JSON block from the text
+            assistantText = assistantText.replace(jsonMatch[0], "").trim();
+          }
+        } catch (e) {
+          console.error("Failed to parse JSON from response", e);
+        }
+      }
 
       const assistantMsg: Message = {
         role: "assistant",
-        content: response.answer,
+        content: assistantText,
         simulation_image: response.simulation_image
       };
 
-      if (response.products && response.products.length > 0) {
+      if (products.length > 0) {
         assistantMsg.blocks = [{
           type: "app",
           title: "",
           view: "carousel",
-          products: response.products
+          products: products
         }];
       }
 

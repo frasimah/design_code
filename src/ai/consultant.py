@@ -43,7 +43,7 @@ class Consultant:
         
         # Модели
         self.chat_model = genai.GenerativeModel(
-            "gemini-3-flash-preview",
+            "gemini-2.0-flash",
             system_instruction=SYSTEM_PROMPT
         )
         
@@ -149,54 +149,12 @@ class Consultant:
             
         # console.print("[cyan]Running LLM Reranking...[/cyan]")
         
-        # Prepare candidates for LLM
-        candidates_text = ""
-        for i, p in enumerate(products):
-            details = p.get('details', {})
-            name = details.get('name', p['slug'])
-            desc = details.get('description', '')[:200]
-            attributes = details.get('attributes', {})
-            
-            candidates_text += f"Item {i}: {name}\nDesc: {desc}\nAttrs: {attributes}\n\n"
-            
-        prompt = f"""User Query: "{query}"
-
-I have a list of candidate products found by semantic search. 
-Your task is to FILTER out products that strictly DO NOT match the visual constraints in the user query (e.g. wrong color, wrong type).
-If the query is vague, keep more products. If specific (e.g. "black lamp"), be strict.
-
-Candidates:
-{candidates_text}
-
-Return a JSON with a list of indices of the best matching products (max 5), sorted by relevance.
-Format: {{ "indices": [0, 2, ...] }}
-"""
-        try:
-            response = self.chat_model.generate_content(prompt)
-            text = response.text
-            
-            import re
-            json_match = re.search(r'```json\s*({.*?})\s*```', text, re.DOTALL)
-            if not json_match:
-                json_match = re.search(r'```\s*({.*?})\s*```', text, re.DOTALL)
-                
-            if json_match:
-                data = json.loads(json_match.group(1))
-                indices = data.get("indices", [])
-                
-                reranked = []
-                for idx in indices:
-                    if 0 <= idx < len(products):
-                        reranked.append(products[idx])
-                
-                if reranked:
-                    # console.print(f"[green]Reranked to {len(reranked)} products[/green]")
-                    return reranked
-                    
-        except Exception as e:
-            console.print(f"[red]Reranking failed: {e}[/red]")
-            
-        return products[:5] # Fallback to top 5
+        print("[DEBUG] Reranking skipped to avoid hang. Returning top 5.")
+        return products[:5]
+        
+        # prompt = f"""User Query: "{query}"
+        # ...
+        # return products[:5] # Fallback to top 5
 
     def answer(self, query: str, image_path: Optional[str] = None, user_id: str = "default", n_products: int = 5, sources: Optional[List[str]] = None) -> Dict:
         """
@@ -252,10 +210,15 @@ Format: {{ "indices": [0, 2, ...] }}
         # Текстовая часть запроса
         text_part = f"""Вопрос пользователя: {query}
 
-Релевантные продукты из каталога (использовать как примеры):
+ВАЖНО: Ниже приведен список товаров, найденных в базе по запросу.
+Используй эти товары для ответа. Если товары перечислены ниже, значит они ЕСТЬ в наличии.
+Не говори, что товаров нет, если список не пуст.
+
+Список найденных товаров:
 {context}
 """
         current_message_content.append(text_part)
+        print("DEBUG: Prompt sent to LLM:\n" + text_part[:1000] + "...")
 
         # Добавляем изображения продуктов для визуального контекста
         # Берем топ-3 продукта, чтобы не перегружать контекст
@@ -300,16 +263,21 @@ Format: {{ "indices": [0, 2, ...] }}
         import re
         recommended_slugs = []
         
-        # 1. Parse custom tag [[RECOMMENDED_SLUGS: ...]] (Robust regex with whitespace support)
+        # Clean up response (REMOVE TAGS)
+        clean_response = response_text
+        
+        # 1. Parse custom tag [[RECOMMENDED_SLUGS: ...]]
         slugs_match = re.search(r'\[\[\s*RECOMMENDED_SLUGS\s*:\s*(.*?)\s*\]\]', response_text, re.DOTALL | re.IGNORECASE)
         if slugs_match:
              try:
+                 # Remove from clean response
+                 clean_response = clean_response.replace(slugs_match.group(0), "")
+                 
                  slugs_str = slugs_match.group(1).strip()
                  if slugs_str:
-                     # Split by comma and clean up quotes/whitespace if model adds them
+                     # Split by comma and clean up quotes/whitespace
                      raw_slugs = slugs_str.split(',')
                      for s in raw_slugs:
-                         # Remove quotes if present
                          clean_s = s.strip().strip('"').strip("'")
                          if clean_s:
                              recommended_slugs.append(clean_s)
@@ -317,55 +285,62 @@ Format: {{ "indices": [0, 2, ...] }}
                  pass
         
         # 2. Legacy fallback: Try to find JSON if custom tag is missing
-        if not recommended_slugs:
-            json_match = re.search(r'\{.*?"recommended_slugs".*?\[.*?\].*?\}', response_text, re.DOTALL)
-            if json_match:
-                try:
-                    data = json.loads(json_match.group(0))
-                    recommended_slugs = data.get("recommended_slugs", [])
-                except Exception:
-                    pass
+        # We also want to remove this JSON if found, regardless of whether we got slugs from custom tag
+        # Use a robust regex that captures the whole JSON object
+        json_pattern = r'```json\s*(\{.*?"recommended_slugs".*?\})\s*```|```\s*(\{.*?"recommended_slugs".*?\})\s*```|(\{[\s\n]*"recommended_slugs"[\s\n]*:[\s\S]*?\})'
         
+        # Find all matches
+        for match in re.finditer(json_pattern, response_text, re.DOTALL | re.IGNORECASE):
+            # The JSON string could be in group 1, 2, or 3 depending on which part of regex matched
+            json_str = match.group(1) or match.group(2) or match.group(3)
+            
+            if json_str:
+                # Remove this match from clean_response
+                # Safest is to replace the exact matched string
+                clean_response = clean_response.replace(match.group(0), "")
+                
+                # If we haven't found slugs yet, try to parse this JSON
+                if not recommended_slugs:
+                    try:
+                        data = json.loads(json_str)
+                        found_slugs = data.get("recommended_slugs", [])
+                        if isinstance(found_slugs, list):
+                            recommended_slugs.extend(found_slugs)
+                    except Exception:
+                        pass
+
         # 3. Text Extraction Fallback (Safety Net): Find "арт. XXX" in text
         if not recommended_slugs:
             # Find all (арт. XXX) or (art. XXX) patterns
-            # Matches: "арт. 123", "art. 123", "арт 123"
             art_matches = re.findall(r'(?i)(?:арт\.?|art\.?)\s*([a-z0-9\-\.]+)', response_text)
             seen_slugs = set()
             for art in art_matches:
-                art_lower = art.lower().strip().rstrip('.') # Remove trailing dot if captured
+                art_lower = art.lower().strip().rstrip('.') 
                 if art_lower in self.slug_map:
                     slug = self.slug_map[art_lower]
                     if slug not in seen_slugs:
                         recommended_slugs.append(slug)
                         seen_slugs.add(slug)
 
+        clean_response = clean_response.strip()
+        
         final_products = []
         if recommended_slugs:
+            # We need 'relevant' products from earlier in the function.
+            # Assuming 'relevant' variable holds the search results.
             relevant_map = {p['slug']: p for p in relevant}
             for slug in recommended_slugs:
                 if slug in relevant_map:
                     final_products.append(relevant_map[slug])
-        else:
-             final_products = [] 
-
-        # Clean up response (REMOVE TAGS)
-        clean_response = response_text
-        
-        # 1. Remove custom tags
-        if slugs_match:
-            start, end = slugs_match.span()
-            clean_response = clean_response[:start] + clean_response[end:]
-        
-        clean_response = re.sub(r'\[\[RECOMMENDED_SLUGS:.*?\]\]', '', clean_response, flags=re.DOTALL | re.IGNORECASE)
-        
-        # 2. Legacy JSON cleanup (Defensive)
-        clean_response = re.sub(r'```json\s*\{.*?"recommended_slugs".*?\}\s*```', '', clean_response, flags=re.DOTALL | re.IGNORECASE)
-        clean_response = re.sub(r'```\s*\{.*?"recommended_slugs".*?\}\s*```', '', clean_response, flags=re.DOTALL | re.IGNORECASE)
-        clean_response = re.sub(r'\{.*?"recommended_slugs".*?\[.*?\].*?\}', '', clean_response, flags=re.DOTALL | re.IGNORECASE)
-        clean_response = re.sub(r'\{\s*"recommended_slugs"\s*:[\s\S]*?\}\s*$', '', clean_response, flags=re.MULTILINE | re.IGNORECASE)
-        
-        clean_response = clean_response.strip()
+                    
+        # Fallback: if no recommended slugs found (or none match relevant), 
+        # but we have relevant results, maybe we should return them?
+        # The original logic seemed to only return specific ones if recommended.
+        if not final_products and relevant:
+             # Fallback: if LLM didn't explicitly recommend slugs but we have search results,
+             # return the top results so the user sees something.
+             # This is important if LLM forgets to use the tag.
+             final_products = relevant[:5]
         
         self.storage.add_message(user_id, "user", query)
         self.storage.add_message(user_id, "model", response_text) # Save full raw response

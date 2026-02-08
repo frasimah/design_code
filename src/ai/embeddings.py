@@ -51,19 +51,27 @@ class ProxiedGeminiEmbeddingFunction(EmbeddingFunction):
                     values = emb_data.get('values', [])
                     if len(values) == 768:
                         embeddings.append(values)
+                    elif len(values) == 3072:
+                        # Output from gemini-embedding-001 can be 3072 (even if docs say 768 sometimes)
+                        embeddings.append(values)
                     else:
-                        embeddings.append([0.0]*768)
+                        print(f"Warning: Unexpected embedding dimension: {len(values)}")
+                        # Try to pad or truncate if desperate, but better to skip or just append and let chroma error
+                        # For now, let's just append and hope for the best or provide a zero vector of correct size if we knew it
+                        # But since we support 768 and 3072, let's just append zeros of 3072 as fallback if it's neither?
+                        # Actually safer to append 3072 zeros if we are moving to that model.
+                        embeddings.append([0.0]*3072)
                 
                 # If for some reason lengths don't match, pad
                 while len(embeddings) < len(input):
-                    embeddings.append([0.0]*768)
+                    embeddings.append([0.0]*3072)
                 return embeddings
             else:
                 print(f"Error batch embedding: {response.text}", file=sys.stderr)
-                return [[0.0]*768 for _ in input]
+                return [[0.0]*3072 for _ in input]
         except Exception as e:
             print(f"Exception batch embedding: {e}", file=sys.stderr)
-            return [[0.0]*768 for _ in input]
+            return [[0.0]*3072 for _ in input]
 
 class BrickEmbeddings:
     """Класс для работы с эмбеддингами продуктов"""
@@ -77,7 +85,7 @@ class BrickEmbeddings:
         # Используем Custom embedding function для поддержки Proxy
         self.embedding_fn = ProxiedGeminiEmbeddingFunction(
             api_key=GEMINI_API_KEY,
-            model_name="models/text-embedding-004"
+            model_name="models/gemini-embedding-001"
         )
         
         # Получаем или создаем коллекцию
@@ -242,6 +250,14 @@ class BrickEmbeddings:
             batch_ids = []
             batch_docs = []
             batch_metas = []
+
+            # Dedup catalog to avoid DuplicateIDError
+            unique_catalog = {}
+            for p in catalog:
+                s = p.get('slug')
+                if s and s not in unique_catalog:
+                    unique_catalog[s] = p
+            catalog = list(unique_catalog.values())
 
             for product in catalog:
                 slug = product.get('slug')

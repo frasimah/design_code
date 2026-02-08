@@ -97,6 +97,8 @@ async def chat(request: ChatRequest, user: Optional[dict] = Depends(get_current_
         }
             
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/history/", response_model=List[dict])
