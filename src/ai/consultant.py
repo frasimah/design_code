@@ -43,7 +43,7 @@ class Consultant:
         
         # Модели
         self.chat_model = genai.GenerativeModel(
-            "gemini-2.0-flash",
+            "gemini-3-flash-preview",
             system_instruction=SYSTEM_PROMPT
         )
         

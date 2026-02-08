@@ -107,3 +107,15 @@ Proprietary © 2026
 ---
 
 *Разработано с ❤️ для Design Code*
+
+## 🚨 Critical Development Rules
+
+**DO NOT CHANGE THE AI MODEL.**
+The  class in  MUST use **`gemini-3-flash-preview`**.
+The user has explicitly forbidden the use of `gemini-2.0-flash` or other models for this component.
+
+## 🚨 Critical Development Rules
+
+**DO NOT CHANGE THE AI MODEL.**
+The `Consultant` class in `src/ai/consultant.py` MUST use **`gemini-3-flash-preview`**.
+The user has explicitly forbidden the use of `gemini-2.0-flash` or other models for this component.
