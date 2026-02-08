@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product } from "@/lib/api";
@@ -16,6 +16,7 @@ interface HorizontalCarouselProps {
 export function HorizontalCarousel({ products, onProductClick, onSave, accessToken }: HorizontalCarouselProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [showLeftArrow, setShowLeftArrow] = useState(false);
+    const [showRightArrow, setShowRightArrow] = useState(false);
 
     const scroll = (direction: 'left' | 'right') => {
         if (scrollRef.current) {
@@ -24,11 +25,22 @@ export function HorizontalCarousel({ products, onProductClick, onSave, accessTok
         }
     };
 
-    const onScroll = () => {
+    const updateArrows = () => {
         if (scrollRef.current) {
-            setShowLeftArrow(scrollRef.current.scrollLeft > 20);
+            const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+            setShowLeftArrow(scrollLeft > 20);
+            // Show right arrow only if there's more content to scroll
+            setShowRightArrow(scrollWidth > clientWidth + scrollLeft + 20);
         }
     };
+
+    // Check arrows on mount and when products change
+    useEffect(() => {
+        updateArrows();
+        // Also check after a small delay to ensure layout is complete
+        const timer = setTimeout(updateArrows, 100);
+        return () => clearTimeout(timer);
+    }, [products]);
 
     return (
         <div className="relative group/carousel-outer">
@@ -45,20 +57,22 @@ export function HorizontalCarousel({ products, onProductClick, onSave, accessTok
                 </div>
             )}
 
-            {/* Right Arrow */}
-            <div className="absolute right-0 top-1/2 -translate-y-[80%] z-20 opacity-0 group-hover/carousel-outer:opacity-100 transition-opacity">
-                <Button
-                    onClick={() => scroll('right')}
-                    size="icon"
-                    className="w-9 h-9 rounded-full bg-white border border-border shadow-md hover:bg-neutral-50 text-[#3d3d3a]"
-                >
-                    <ChevronRight className="h-5 w-5" />
-                </Button>
-            </div>
+            {/* Right Arrow - only show if there's more content to scroll */}
+            {showRightArrow && (
+                <div className="absolute right-0 top-1/2 -translate-y-[80%] z-20 opacity-0 group-hover/carousel-outer:opacity-100 transition-opacity">
+                    <Button
+                        onClick={() => scroll('right')}
+                        size="icon"
+                        className="w-9 h-9 rounded-full bg-white border border-border shadow-md hover:bg-neutral-50 text-[#3d3d3a]"
+                    >
+                        <ChevronRight className="h-5 w-5" />
+                    </Button>
+                </div>
+            )}
 
             <div
                 ref={scrollRef}
-                onScroll={onScroll}
+                onScroll={updateArrows}
                 className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide snap-x pr-24 scroll-smooth"
             >
                 {products.map(product => (
