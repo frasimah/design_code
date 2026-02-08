@@ -76,6 +76,11 @@ echo "Updating Python dependencies..."
 source venv/bin/activate
 pip install -r requirements.txt
 
+# 2.1) Re-index product catalog (required for new embedding model)
+CURRENT_STEP="re-index catalog"
+echo "Re-indexing product catalog..."
+python3 src/ai/embeddings.py --force
+
 # 3) Сборка фронтенда (Next.js)
 CURRENT_STEP="frontend build"
 echo "Building frontend..."
