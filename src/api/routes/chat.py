@@ -108,12 +108,31 @@ async def get_history(user: Optional[dict] = Depends(get_current_user)):
     """
     user_id = user.get("id") if user else "anonymous"
     raw_history = consultant.storage.get_history(user_id, limit=50)
-    # Format for frontend: role, content (instead of parts)
+    
+    # Format for frontend: role, content, products (enriched from slugs)
     formatted = []
     for item in raw_history:
-        formatted.append({
+        msg = {
             "role": "user" if item["role"] == "user" else "assistant",
             "content": item["parts"][0] if item["parts"] else ""
-        })
+        }
+        
+        # Enrich product slugs with full product data
+        product_slugs = item.get("product_slugs", [])
+        if product_slugs:
+            products = []
+            for slug in product_slugs:
+                if slug in consultant.catalog:
+                    product_data = consultant.catalog[slug]
+                    # Flatten if it has 'details' structure
+                    if 'details' in product_data:
+                        flat = {**product_data.get('details', {}), 'slug': slug}
+                    else:
+                        flat = {**product_data, 'slug': slug}
+                    products.append(flat)
+            if products:
+                msg["products"] = products
+        
+        formatted.append(msg)
     return formatted
 

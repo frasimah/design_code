@@ -83,10 +83,24 @@ export default function Home() {
     api.getChatHistory(accessToken)
       .then(chatMessages => {
         if (chatMessages && chatMessages.length > 0) {
-          const formattedMessages = chatMessages.map(h => ({
-            role: h.role === 'user' ? 'user' : 'assistant',
-            content: h.content
-          } as Message));
+          const formattedMessages = chatMessages.map(h => {
+            const msg: Message = {
+              role: h.role === 'user' ? 'user' : 'assistant',
+              content: h.content
+            };
+
+            // If message has products, add them as blocks for carousel display
+            if (h.products && h.products.length > 0) {
+              msg.blocks = [{
+                type: "app",
+                title: "Найденные товары",
+                view: "carousel",
+                products: h.products
+              }];
+            }
+
+            return msg;
+          });
 
           setMessages(formattedMessages);
 

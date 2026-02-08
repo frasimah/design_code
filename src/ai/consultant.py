@@ -410,8 +410,11 @@ class Consultant:
                  # So returning empty is safer.
                  final_products = []
         
+        # Extract slugs for persistence
+        product_slugs = [p.get('slug') for p in final_products if p.get('slug')]
+        
         self.storage.add_message(user_id, "user", query)
-        self.storage.add_message(user_id, "model", response_text) # Save full raw response
+        self.storage.add_message(user_id, "model", response_text, product_slugs=product_slugs)
         
         return {
             "answer": clean_response,

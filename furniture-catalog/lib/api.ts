@@ -132,7 +132,7 @@ export const api = {
         return res.json();
     },
 
-    async getChatHistory(token?: string): Promise<Array<{ role: 'user' | 'assistant', content: string }>> {
+    async getChatHistory(token?: string): Promise<Array<{ role: 'user' | 'assistant', content: string, products?: Product[] }>> {
         const headers: HeadersInit = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
         const res = await fetch(`${API_BASE_URL}/chat/history/`, { headers });
