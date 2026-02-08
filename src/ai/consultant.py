@@ -298,7 +298,22 @@ class Consultant:
                      for s in raw_slugs:
                          clean_s = s.strip().strip('"').strip("'")
                          if clean_s:
-                             recommended_slugs.append(clean_s)
+                             # Validate: check if this slug exists in catalog
+                             if clean_s in self.catalog:
+                                 recommended_slugs.append(clean_s)
+                             # If not found, try to resolve via slug_map (maybe it's an article)
+                             elif clean_s in self.slug_map:
+                                 recommended_slugs.append(self.slug_map[clean_s])
+                             # Try common variations
+                             elif clean_s.replace('-', ' ') in self.slug_map:
+                                 recommended_slugs.append(self.slug_map[clean_s.replace('-', ' ')])
+                             else:
+                                 # Try as article with "reference: " prefix
+                                 ref_key = 'reference: ' + clean_s.replace('-', ' ')
+                                 if ref_key in self.slug_map:
+                                     recommended_slugs.append(self.slug_map[ref_key])
+                                 else:
+                                     print(f"[WARN] Slug '{clean_s}' not found in catalog or slug_map, skipping")
              except Exception:
                  pass
         
@@ -330,26 +345,47 @@ class Consultant:
         # 3. Text Extraction Fallback (Safety Net): Find "арт. XXX" in text
         if not recommended_slugs:
             # Find all (арт. XXX) or (art. XXX) patterns, optionally with Reference: prefix
-            art_matches = re.findall(r'(?i)(?:арт\.?|art\.?)\s*(?:Reference:?)?\s*([a-z0-9\-\.]+)', response_text)
+            art_matches = re.findall(r'(?i)(?:арт\.?|art\.?)\s*(?:Reference:?)?\s*([a-z0-9\-\.\s]+?)(?:\)|,|\s{2}|$)', response_text)
             seen_slugs = set()
             for art in art_matches:
-                art_lower = art.lower().strip().rstrip('.') 
-                if art_lower in self.slug_map:
-                    slug = self.slug_map[art_lower]
-                    if slug not in seen_slugs:
-                        recommended_slugs.append(slug)
-                        seen_slugs.add(slug)
+                art_lower = art.lower().strip().rstrip('.')
+                # Build possible keys to check
+                possible_keys = [art_lower]
+                if art_lower.startswith('reference:'):
+                    clean = art_lower.replace('reference:', '').strip()
+                    possible_keys.append(clean)
+                    possible_keys.append('reference: ' + clean)
+                # Also try full catalog article matching
+                possible_keys.append('reference: ' + art_lower)
+                
+                for key in possible_keys:
+                    if key in self.slug_map:
+                        slug = self.slug_map[key]
+                        if slug not in seen_slugs:
+                            recommended_slugs.append(slug)
+                            seen_slugs.add(slug)
+                        break
+        
+        # 4. Name-based fallback: Find product names mentioned in text
+        if not recommended_slugs:
+            for p in relevant[:5]:  # Check top 5 search results
+                details = p.get('details', {})
+                name = details.get('name', '')
+                if name and name.lower() in response_text.lower():
+                    recommended_slugs.append(p['slug'])
 
         clean_response = clean_response.strip()
         
         final_products = []
         if recommended_slugs:
-            # We need 'relevant' products from earlier in the function.
-            # Assuming 'relevant' variable holds the search results.
+            # First check in search results
             relevant_map = {p['slug']: p for p in relevant}
             for slug in recommended_slugs:
                 if slug in relevant_map:
                     final_products.append(relevant_map[slug])
+                elif slug in self.catalog:
+                    # Fallback to full catalog if not in search results
+                    final_products.append(self.catalog[slug])
                     
         # Fallback: if no recommended slugs found (or none match relevant), 
         # but we have relevant results, checks their distance to ensure relevance.
