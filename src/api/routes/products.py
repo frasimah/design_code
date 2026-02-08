@@ -901,9 +901,21 @@ async def update_product_image(slug: str, request: UpdateImageRequest, user: dic
         items_list = data if isinstance(data, list) else data.get("items", [])
             
         for item in items_list:
-            # Match by slug
-            item_slug = slugify(item.get('title') or item.get('name', ''))
-            if item.get('slug') == slug or item_slug == slug:
+            # Match by slug (direct match)
+            item_slug = item.get('slug', '')
+            
+            # Match by generated slug from title/name
+            generated_slug = slugify(item.get('title') or item.get('name', ''))
+            
+            # Match by article number
+            item_article = str(item.get('article', '')).lower().strip()
+            slug_lower = slug.lower()
+            
+            # Check all possible matches
+            if (item_slug == slug or 
+                generated_slug == slug or 
+                (item_article and item_article == slug_lower) or
+                (item_article and slug_lower.endswith(item_article))):
                 # UPDATE LOGIC
                 item['main_image'] = new_image_url
                 if 'images' not in item or not isinstance(item['images'], list):
