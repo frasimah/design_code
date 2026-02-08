@@ -891,6 +891,7 @@ async def update_product_image(slug: str, request: UpdateImageRequest, user: dic
 
     try:
         # Load, find, update, save
+        print(f"[DEBUG update_image] Looking for slug='{slug}' in source_id='{source_id}' file='{file_path}'")
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             
@@ -899,13 +900,17 @@ async def update_product_image(slug: str, request: UpdateImageRequest, user: dic
         
         # Handle list vs dict (links)
         items_list = data if isinstance(data, list) else data.get("items", [])
+        print(f"[DEBUG update_image] items_list has {len(items_list)} items")
             
         for item in items_list:
             # Match by slug (direct match)
-            item_slug = item.get('slug', '')
+            item_slug = item.get('slug', '') or ''
             
-            # Match by generated slug from title/name
-            generated_slug = slugify(item.get('title') or item.get('name', ''))
+            # Match by generated slug from title
+            title_slug = slugify(item.get('title', '')) if item.get('title') else ''
+            
+            # Match by generated slug from name (catalog_dict uses this)
+            name_slug = slugify(item.get('name', '')) if item.get('name') else ''
             
             # Match by article number
             item_article = str(item.get('article', '')).lower().strip()
@@ -913,7 +918,8 @@ async def update_product_image(slug: str, request: UpdateImageRequest, user: dic
             
             # Check all possible matches
             if (item_slug == slug or 
-                generated_slug == slug or 
+                title_slug == slug or
+                name_slug == slug or
                 (item_article and item_article == slug_lower) or
                 (item_article and slug_lower.endswith(item_article))):
                 # UPDATE LOGIC
