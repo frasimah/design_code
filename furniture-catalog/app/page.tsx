@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Sidebar } from "@/components/sidebar";
 import { ChatView } from "@/components/chat-view"; // New component
@@ -128,6 +128,44 @@ export default function Home() {
       })
       .catch(console.error);
   }, [accessToken]);
+
+  // Handle URL parameters for deep linking (product/project)
+  const urlHandledRef = useRef(false);
+  useEffect(() => {
+    // Only run once
+    if (urlHandledRef.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const productSlug = params.get('product');
+    const projectId = params.get('project');
+
+    if (productSlug) {
+      urlHandledRef.current = true;
+      // Fetch and open product by slug
+      api.getProduct(productSlug)
+        .then(product => {
+          setSelectedProduct(product);
+          // Clean up URL after success
+          window.history.replaceState({}, '', window.location.pathname);
+        })
+        .catch(err => {
+          console.error("Failed to load product from URL:", err);
+          // Clean up URL even on error
+          window.history.replaceState({}, '', window.location.pathname);
+        });
+    }
+
+    if (projectId && projects.length > 0) {
+      const project = projects.find(p => p.id === projectId);
+      if (project) {
+        urlHandledRef.current = true;
+        setActiveProjectId(projectId);
+        setCurrentView('project-detail');
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, [projects]);
 
   // --- Handlers ---
 

@@ -37,6 +37,18 @@ export function ProjectDetailView({ project, onBack, onProductClick, onRemoveIte
     const [itemToDelete, setItemToDelete] = useState<Product | null>(null);
     const [isEditingName, setIsEditingName] = useState(false);
     const [editName, setEditName] = useState(project.name);
+    const [shareNotification, setShareNotification] = useState(false);
+
+    const handleShare = async () => {
+        const url = `${window.location.origin}${window.location.pathname}?project=${project.id}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            setShareNotification(true);
+            setTimeout(() => setShareNotification(false), 2000);
+        } catch (err) {
+            console.error("Failed to copy URL", err);
+        }
+    };
 
     const handleProductAdded = (product: Product) => {
         if (onProductAdded) {
@@ -132,6 +144,20 @@ export function ProjectDetailView({ project, onBack, onProductClick, onRemoveIte
                             }}
                         >
                             Распечатать КП
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413] relative"
+                            onClick={handleShare}
+                            title="Поделиться ссылкой"
+                        >
+                            <Share className="h-5 w-5" />
+                            {shareNotification && (
+                                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap">
+                                    Скопировано!
+                                </span>
+                            )}
                         </Button>
                         <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413]">
                             <MoreHorizontal className="h-5 w-5" />

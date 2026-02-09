@@ -2,7 +2,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { Product, api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { BookmarkPlus, Trash2, Pencil, Check, X, Camera } from "lucide-react";
+import { BookmarkPlus, Trash2, Pencil, Check, X, Camera, Share2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -164,6 +164,20 @@ export function ProductCard({
                 console.error("Failed to delete product", err);
                 alert("Не удалось удалить товар");
             }
+        }
+    };
+
+    const [shareNotification, setShareNotification] = useState(false);
+
+    const handleShare = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const url = `${window.location.origin}${window.location.pathname}?product=${product.slug}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            setShareNotification(true);
+            setTimeout(() => setShareNotification(false), 2000);
+        } catch (err) {
+            console.error("Failed to copy URL", err);
         }
     };
 
@@ -338,6 +352,22 @@ export function ProductCard({
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     )}
+
+                    {/* Share button */}
+                    <Button
+                        size="icon"
+                        variant="secondary"
+                        className="h-8 w-8 rounded-full bg-white/90 hover:bg-white shadow-sm backdrop-blur-sm text-neutral-600 hover:text-neutral-900 relative"
+                        onClick={handleShare}
+                        title="Поделиться ссылкой"
+                    >
+                        <Share2 className="h-4 w-4" />
+                        {shareNotification && (
+                            <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap">
+                                Скопировано!
+                            </span>
+                        )}
+                    </Button>
 
                     <input
                         type="file"
