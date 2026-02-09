@@ -475,6 +475,86 @@ async def update_price(slug: str, request: UpdatePriceRequest, user: dict = Depe
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class UpdateTitleRequest(BaseModel):
+    title: str
+
+
+@router.put("/{slug}/title")
+async def update_title(slug: str, request: UpdateTitleRequest, user: dict = Depends(get_current_user)):
+    """Update title for a specific product"""
+    if not user or not user.get("id"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    if slug not in catalog_dict:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    product = catalog_dict[slug]
+    source = product.get('source', 'catalog')
+    new_title = request.title.strip()
+    
+    if not new_title:
+        raise HTTPException(status_code=400, detail="Title cannot be empty")
+    
+    # Ownership check for custom sources
+    if source not in ['catalog', 'woocommerce']:
+        config = get_sources_config()
+        source_meta = config.get(f"_meta_{source}", {})
+        source_owner = source_meta.get("user_id")
+        if source_owner and source_owner != user["id"]:
+            raise HTTPException(status_code=403, detail="You do not own this product's source")
+    
+    # Identify target file
+    target_file = None
+    if source == 'catalog':
+        target_file = PRODUCTS_JSON_PATH
+    elif source == 'woocommerce':
+        target_file = DATA_DIR / "processed" / "full_catalog.json"
+    else:
+        target_file = CUSTOM_CATALOGS_DIR / f"{source}.json"
+        
+    if not target_file.exists():
+        raise HTTPException(status_code=404, detail=f"Source file not found: {target_file}")
+         
+    try:
+        with open(target_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            
+        updated = False
+        for item in data:
+            item_slug = item.get('slug')
+            if not item_slug:
+                from slugify import slugify
+                name = item.get('name') or item.get('title')
+                if name:
+                    item_slug = slugify(name)
+            
+            if item_slug == slug:
+                # Update both name and title fields
+                item['name'] = new_title
+                item['title'] = new_title
+                # Update in-memory product too
+                product['name'] = new_title
+                product['title'] = new_title
+                updated = True
+                break
+        
+        if not updated:
+            raise HTTPException(status_code=500, detail="Product found in cache but not in source file")
+            
+        with open(target_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            
+        # Re-index specific item
+        embeddings.index_product(product)
+        
+        return {"status": "success", "message": "Title updated", "title": new_title}
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.delete("/{slug}")
 async def delete_product(slug: str, user: dict = Depends(get_current_user)):
     """Delete a specific product"""
@@ -560,6 +640,7 @@ async def get_products(
     brand: Optional[str] = None,
     source: Optional[str] = 'catalog',
     sort: Optional[str] = None,
+    stock_status: Optional[str] = None,
     user: Optional[dict] = Depends(get_current_user)
 ):
     """
@@ -585,7 +666,15 @@ async def get_products(
     if 'woocommerce' in requested_sources:
         from src.api.services.woocommerce import fetch_wc_products
         page = (skip // limit) + 1
-        wc_products, wc_total = fetch_wc_products(page=page, limit=limit, query=query, category=category, sort=sort, brand=brand)
+        wc_products, wc_total = fetch_wc_products(
+            page=page, 
+            limit=limit, 
+            query=query, 
+            category=category, 
+            sort=sort, 
+            brand=brand,
+            stock_status=stock_status
+        )
 
     # 2. Fetch Local/Custom Catalog Data
     local_candidates = []

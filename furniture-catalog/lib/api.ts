@@ -89,13 +89,14 @@ export interface DeleteProductResponse {
 }
 
 export const api = {
-    async getProducts(query?: string, limit: number = 50, color?: string, source: string = 'catalog', skip: number = 0, category?: string, sort?: string, brand?: string, token?: string): Promise<{ items: Product[], total: number }> {
+    async getProducts(query?: string, limit: number = 50, color?: string, source: string = 'catalog', skip: number = 0, category?: string, sort?: string, brand?: string, token?: string, stock_status?: string): Promise<{ items: Product[], total: number }> {
         const params = new URLSearchParams();
         if (query) params.append('query', query);
         if (color && color !== 'all') params.append('color', color);
         if (category && category !== 'all') params.append('category', category);
         if (brand && brand !== 'all') params.append('brand', brand);
         if (sort && sort !== 'default') params.append('sort', sort);
+        if (stock_status && stock_status !== 'all') params.append('stock_status', stock_status);
         if (source) params.append('source', source);
         params.append('limit', limit.toString());
         params.append('skip', skip.toString());
@@ -248,6 +249,22 @@ export const api = {
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to update price');
+        }
+        return response.json();
+    },
+
+    async updateProductTitle(slug: string, title: string, token?: string): Promise<{ status: string; title: string }> {
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch(`${API_BASE_URL}/products/${slug}/title`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ title })
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to update title');
         }
         return response.json();
     },

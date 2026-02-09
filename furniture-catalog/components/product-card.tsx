@@ -47,6 +47,11 @@ export function ProductCard({
         currency: product.currency || 'EUR'
     });
 
+    // Title editing state
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [editTitle, setEditTitle] = useState<string>("");
+    const [localTitle, setLocalTitle] = useState<string>(product.title || product.name || "");
+
     // Image state
     const [localImage, setLocalImage] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -102,6 +107,34 @@ export function ProductCard({
     const handleCancelEdit = (e: React.MouseEvent) => {
         e.stopPropagation();
         setIsEditingPrice(false);
+    };
+
+    const handleStartTitleEdit = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setEditTitle(localTitle);
+        setIsEditingTitle(true);
+    };
+
+    const handleSaveTitle = async (e: React.MouseEvent | React.KeyboardEvent) => {
+        e.stopPropagation();
+        const newTitle = editTitle.trim();
+        if (!newTitle || newTitle === localTitle) {
+            setIsEditingTitle(false);
+            return;
+        }
+        try {
+            await api.updateProductTitle(product.slug || '', newTitle, accessToken);
+            setLocalTitle(newTitle);
+            setIsEditingTitle(false);
+        } catch (err) {
+            console.error("Failed to update title", err);
+            alert("Не удалось обновить название");
+        }
+    };
+
+    const handleCancelTitleEdit = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsEditingTitle(false);
     };
 
     // Determine image source: try local state, then images array, then main_image
@@ -237,10 +270,42 @@ export function ProductCard({
                 >
                     {/* Title */}
                     {visibleColumns.name && (
-                        <div className="min-w-0">
-                            <h3 className="font-medium text-[14px] text-[#141413] truncate" title={title}>
-                                {title}
-                            </h3>
+                        <div className="min-w-0" onClick={e => e.stopPropagation()}>
+                            {isEditingTitle ? (
+                                <div className="flex items-center gap-1">
+                                    <input
+                                        type="text"
+                                        value={editTitle}
+                                        onChange={e => setEditTitle(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleSaveTitle(e)}
+                                        className="flex-1 text-[14px] border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-ring bg-white min-w-0"
+                                        autoFocus
+                                    />
+                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleSaveTitle}>
+                                        <Check className="h-3 w-3" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCancelTitleEdit}>
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-1 group/title">
+                                    <h3
+                                        className="font-medium text-[14px] text-[#141413] truncate flex-1"
+                                        title={localTitle}
+                                    >
+                                        {localTitle}
+                                    </h3>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-5 w-5 opacity-0 group-hover/title:opacity-100 transition-opacity flex-shrink-0"
+                                        onClick={handleStartTitleEdit}
+                                    >
+                                        <Pencil className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -410,9 +475,41 @@ export function ProductCard({
 
             {/* Content */}
             <div className="flex flex-col gap-0.5 mt-1 px-0.5">
-                <h3 className="font-bold text-[15px] text-[#141413] leading-tight truncate" title={title}>
-                    {title}
-                </h3>
+                {isEditingTitle ? (
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <input
+                            type="text"
+                            value={editTitle}
+                            onChange={e => setEditTitle(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleSaveTitle(e)}
+                            className="flex-1 text-[15px] font-bold border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-ring bg-white min-w-0"
+                            autoFocus
+                        />
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleSaveTitle}>
+                            <Check className="h-3 w-3" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCancelTitleEdit}>
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-1 group/title">
+                        <h3
+                            className="font-bold text-[15px] text-[#141413] leading-tight truncate flex-1"
+                            title={localTitle}
+                        >
+                            {localTitle}
+                        </h3>
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-5 w-5 opacity-0 group-hover/title:opacity-100 transition-opacity flex-shrink-0"
+                            onClick={handleStartTitleEdit}
+                        >
+                            <Pencil className="h-3 w-3" />
+                        </Button>
+                    </div>
+                )}
 
                 {product.brand && (
                     <p className="text-[12px] text-[#868685] truncate font-medium leading-tight uppercase">

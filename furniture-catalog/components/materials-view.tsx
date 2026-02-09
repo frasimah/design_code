@@ -58,6 +58,7 @@ export function MaterialsView({
     // Use initialSource if provided, otherwise default to all (empty) or catalog
     // If initialSource is provided, we set selectedSources to just that source
     const [selectedSources, setSelectedSources] = useState<string[]>(initialSource ? [initialSource] : []);
+    const [stockStatus, setStockStatus] = useState<string>("all");
 
     const [activeSort, setActiveSort] = useState<string>("relevance");
     const [viewMode, setViewMode] = useState<'grid' | 'large' | 'list'>('grid');
@@ -79,6 +80,7 @@ export function MaterialsView({
         if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
         if (selectedBrands.length > 0) params.set('brands', selectedBrands.join(','));
         if (selectedSources.length > 0) params.set('sources', selectedSources.join(','));
+        if (stockStatus !== 'all') params.set('stock_status', stockStatus);
         if (activeSort !== 'relevance') params.set('sort', activeSort);
 
         const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
@@ -123,6 +125,7 @@ export function MaterialsView({
         const urlCategory = params.get('category');
         const urlBrands = params.get('brands');
         const urlSources = params.get('sources');
+        const urlStockStatus = params.get('stock_status');
         const urlSort = params.get('sort');
 
         let hasParams = false;
@@ -130,6 +133,7 @@ export function MaterialsView({
         if (urlCategory) { setSelectedCategory(urlCategory); hasParams = true; }
         if (urlBrands) { setSelectedBrands(urlBrands.split(',')); hasParams = true; }
         if (urlSources) { setSelectedSources(urlSources.split(',')); hasParams = true; }
+        if (urlStockStatus) { setStockStatus(urlStockStatus); hasParams = true; }
         if (urlSort) { setActiveSort(urlSort); hasParams = true; }
 
         urlParsedRef.current = true;
@@ -144,7 +148,7 @@ export function MaterialsView({
     }, []);
 
     // Track filter version to detect filter changes
-    const filterKey = `${debouncedQuery}-${selectedCategory}-${selectedSources.join(',')}-${activeSort}-${selectedBrands.join(',')}`;
+    const filterKey = `${debouncedQuery}-${selectedCategory}-${selectedSources.join(',')}-${activeSort}-${selectedBrands.join(',')}-${stockStatus}`;
     const prevFilterKeyRef = useRef(filterKey);
 
     // Fetch products - only after initialization
@@ -179,7 +183,8 @@ export function MaterialsView({
                     selectedCategory !== 'all' ? selectedCategory : undefined,
                     activeSort !== 'default' ? activeSort : undefined,
                     brandParam,
-                    accessToken
+                    accessToken,
+                    stockStatus !== 'all' ? stockStatus : undefined
                 );
                 const { items, total } = response;
 
@@ -212,7 +217,7 @@ export function MaterialsView({
 
         return () => { active = false; };
         // Trigger on filter changes or page increment
-    }, [debouncedQuery, selectedCategory, selectedSources, page, activeSort, selectedBrands, filterKey, isInitialized]);
+    }, [debouncedQuery, selectedCategory, selectedSources, page, activeSort, selectedBrands, filterKey, isInitialized, stockStatus]);
 
     // Categories State
     const [categories, setCategories] = useState<{ value: string, label: string }[]>([
@@ -369,6 +374,23 @@ export function MaterialsView({
                             </select>
                             <ArrowDownUp className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                         </div>
+
+                        {/* Stock Status Filter - only for Woocommerce */}
+                        {selectedSources.includes('woocommerce') && (
+                            <div className="relative">
+                                <select
+                                    value={stockStatus}
+                                    onChange={(e) => setStockStatus(e.target.value)}
+                                    className="h-10 pl-4 pr-10 rounded-full bg-white border border-[#1f1e1d0f] text-sm text-[#565552] focus:outline-none focus:border-[#c6613f]/50 appearance-none cursor-pointer hover:bg-neutral-50 transition-colors min-w-[120px]"
+                                >
+                                    <option value="all">Любое наличие</option>
+                                    <option value="instock">В наличии</option>
+                                    <option value="outofstock">Нет в наличии</option>
+                                    <option value="onbackorder">Предзаказ</option>
+                                </select>
+                                <ArrowDownUp className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                            </div>
+                        )}
 
                         {/* Category Filter */}
                         <div className="relative">

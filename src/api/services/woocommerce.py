@@ -136,7 +136,8 @@ def normalize_wc_product(wc_product: dict) -> dict:
         "attributes": attributes,
         "parameters": {
             "Цена": price
-        }
+        },
+        "stock_status": wc_product.get('stock_status', 'instock')
     }
 
 def get_brand_id_by_name(name: str) -> Optional[int]:
@@ -147,11 +148,13 @@ def get_brand_id_by_name(name: str) -> Optional[int]:
             return b['id']
     return None
 
-def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = None, category: Optional[str] = None, sort: Optional[str] = None, brand: Optional[str] = None) -> Tuple[List[dict], int]:
+def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = None, category: Optional[str] = None, sort: Optional[str] = None, brand: Optional[str] = None, stock_status: Optional[str] = None) -> Tuple[List[dict], int]:
+    
+    # 1. Try raw full cache first (fastest, most complete)
     """Fetch products from WooCommerce API with caching."""
     
     # Create cache key from parameters
-    cache_key = f"wc_products:{page}:{limit}:{query}:{category}:{sort}:{brand}"
+    cache_key = f"wc_products:{page}:{limit}:{query}:{category}:{sort}:{brand}:{stock_status}"
     
     # Check cache
     cached = _get_from_cache(cache_key)
@@ -272,6 +275,12 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
                     if not found_brand:
                         continue
                 
+                # 4. Stock Status
+                if stock_status and stock_status != 'all':
+                     p_status = p.get('stock_status', 'instock')
+                     if p_status != stock_status:
+                         continue
+
                 if is_normalized:
                     filtered_items.append(p)
                 else:
@@ -315,10 +324,12 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
              if brand_id_str:
                  target_brand_id = int(brand_id_str)
         
-        if target_brand_id:
              try:
                  params["pwb-brand"] = target_brand_id 
              except: pass
+
+    if stock_status and stock_status != 'all':
+        params["stock_status"] = stock_status
 
     if sort:
         if sort == 'price_asc':
@@ -341,6 +352,48 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
         if response.status_code == 200:
             total = int(response.headers.get('X-WP-Total', 0))
             products = [normalize_wc_product(p) for p in response.json()]
+            
+            # Post-filtering for brand and stock status (API might ignore filters or return mixed results)
+            filtered_products = []
+            
+            # Prepare brand name for filtering
+            brand_name_filter = None
+            if brand and brand != 'all':
+                if brand.isdigit():
+                    # Resolve brand name from ID
+                    try:
+                        all_brands = fetch_wc_brands()
+                        for b in all_brands:
+                            if str(b.get('id')) == brand:
+                                brand_name_filter = b.get('name')
+                                break
+                    except: pass
+                else:
+                    brand_name_filter = brand
+
+            for p in products:
+                # 1. Brand Check
+                if brand_name_filter:
+                    p_brand = p.get('brand', '')
+                    if not p_brand or p_brand.lower() != brand_name_filter.lower():
+                        continue 
+
+                # 2. Stock Filter Check
+                if stock_status and stock_status != 'all':
+                     if p.get('stock_status', 'instock') != stock_status:
+                         continue
+                
+                filtered_products.append(p)
+            
+            products = filtered_products
+            
+            # Update total if we filtered heavily?
+            # If we filter significantly, total from headers is misleading for this page.
+            # But we don't know real total across pages.
+            # Let's keep total from headers unless products became empty?
+            # Or just use len(products) if single page request?
+            # For now, keep original total to allow pagination attempts, but user might see empty pages.
+            
             # Cache the remote page result
             _save_to_cache(cache_key, (products, total))
             return products, total
