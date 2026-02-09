@@ -139,6 +139,11 @@ export default function Home() {
     const productSlug = params.get('product');
     const projectId = params.get('project');
 
+    // Check for catalog filter params
+    const hasCatalogParams = params.has('q') || params.has('category') ||
+      params.has('brands') || params.has('sources') ||
+      params.has('sort');
+
     if (productSlug) {
       urlHandledRef.current = true;
       // Fetch and open product by slug
@@ -164,6 +169,13 @@ export default function Home() {
         // Clean up URL
         window.history.replaceState({}, '', window.location.pathname);
       }
+    }
+
+    // If catalog filter params, switch to materials view (it will parse the params itself)
+    if (hasCatalogParams) {
+      urlHandledRef.current = true;
+      setCurrentView('materials');
+      // Don't clean URL here - MaterialsView will do it after parsing
     }
   }, [projects]);
 
@@ -630,6 +642,8 @@ export default function Home() {
             product={selectedProduct}
             onBack={() => setSelectedProduct(null)}
             onSave={(p) => setProductToSave(p)}
+            currencyMode={showRubles ? 'rub' : 'original'}
+            exchangeRate={exchangeRate}
           />
         </div>
       )}

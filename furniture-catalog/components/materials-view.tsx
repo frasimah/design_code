@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, Loader2, ArrowDownUp, Plus, Grid, LayoutGrid, List, Settings2 } from "lucide-react";
+import { Search, Loader2, ArrowDownUp, Plus, Grid, LayoutGrid, List, Settings2, Share2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/product-card";
@@ -70,10 +70,31 @@ export function MaterialsView({
         price: true
     });
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [shareNotification, setShareNotification] = useState(false);
+
+    // Build shareable URL with current filters
+    const handleShareCatalog = async () => {
+        const params = new URLSearchParams();
+        if (query) params.set('q', query);
+        if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
+        if (selectedBrands.length > 0) params.set('brands', selectedBrands.join(','));
+        if (selectedSources.length > 0) params.set('sources', selectedSources.join(','));
+        if (activeSort !== 'relevance') params.set('sort', activeSort);
+
+        const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            setShareNotification(true);
+            setTimeout(() => setShareNotification(false), 2000);
+        } catch (err) {
+            console.error("Failed to copy URL", err);
+        }
+    };
 
     const [products, setProducts] = useState<Product[]>([]);
     const [totalCount, setTotalCount] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [isInitialized, setIsInitialized] = useState(false);
 
     // Infinite Scroll State
     const [page, setPage] = useState(1);
@@ -89,12 +110,46 @@ export function MaterialsView({
         }).catch(console.error);
     }, [accessToken]);
 
+    // Parse URL parameters for shared catalog links
+    const urlParsedRef = useRef(false);
+    useEffect(() => {
+        if (urlParsedRef.current) {
+            setIsInitialized(true);
+            return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const urlQuery = params.get('q');
+        const urlCategory = params.get('category');
+        const urlBrands = params.get('brands');
+        const urlSources = params.get('sources');
+        const urlSort = params.get('sort');
+
+        let hasParams = false;
+        if (urlQuery) { setQuery(urlQuery); hasParams = true; }
+        if (urlCategory) { setSelectedCategory(urlCategory); hasParams = true; }
+        if (urlBrands) { setSelectedBrands(urlBrands.split(',')); hasParams = true; }
+        if (urlSources) { setSelectedSources(urlSources.split(',')); hasParams = true; }
+        if (urlSort) { setActiveSort(urlSort); hasParams = true; }
+
+        urlParsedRef.current = true;
+
+        if (hasParams) {
+            // Clean up URL
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+
+        // Mark as initialized after a microtask to allow state updates to propagate
+        setTimeout(() => setIsInitialized(true), 0);
+    }, []);
+
     // Track filter version to detect filter changes
     const filterKey = `${debouncedQuery}-${selectedCategory}-${selectedSources.join(',')}-${activeSort}-${selectedBrands.join(',')}`;
     const prevFilterKeyRef = useRef(filterKey);
 
-    // Fetch products
+    // Fetch products - only after initialization
     useEffect(() => {
+        if (!isInitialized) return;
         let active = true;
 
         async function fetchProducts() {
@@ -157,7 +212,7 @@ export function MaterialsView({
 
         return () => { active = false; };
         // Trigger on filter changes or page increment
-    }, [debouncedQuery, selectedCategory, selectedSources, page, activeSort, selectedBrands, filterKey]);
+    }, [debouncedQuery, selectedCategory, selectedSources, page, activeSort, selectedBrands, filterKey, isInitialized]);
 
     // Categories State
     const [categories, setCategories] = useState<{ value: string, label: string }[]>([
@@ -196,14 +251,25 @@ export function MaterialsView({
             try {
                 const sourceParam = selectedSources.length > 0 && !selectedSources.includes('all') ? selectedSources.join(',') : 'catalog';
                 const data = await api.getBrands(sourceParam);
-                setBrands([
+                const newBrands = [
                     { value: "all", label: "Все бренды" },
                     ...data.map(b => ({
                         value: b.id,
                         label: b.name
                     }))
-                ]);
-                setSelectedBrands(["all"]);
+                ];
+                setBrands(newBrands);
+
+                // Only reset to 'all' if current selection is not in the new brands list
+                // This preserves URL-set brands
+                const brandValues = newBrands.map(b => b.value);
+                const currentBrandValid = selectedBrands.length === 1 &&
+                    selectedBrands[0] !== 'all' &&
+                    brandValues.includes(selectedBrands[0]);
+
+                if (!currentBrandValid && !urlParsedRef.current) {
+                    setSelectedBrands(["all"]);
+                }
             } catch (e) {
                 console.error("Failed to load brands", e);
             }
@@ -380,6 +446,20 @@ export function MaterialsView({
                                 ₽
                             </button>
                         )}
+
+                        {/* Share Catalog Button */}
+                        <button
+                            onClick={handleShareCatalog}
+                            className="h-10 w-10 min-w-[40px] rounded-full border border-[#1f1e1d0f] bg-white flex items-center justify-center text-[#565552] hover:bg-neutral-50 hover:text-[#141413] transition-colors ml-2 relative"
+                            title="Поделиться каталогом"
+                        >
+                            <Share2 className="h-4 w-4" />
+                            {shareNotification && (
+                                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-50">
+                                    Скопировано!
+                                </span>
+                            )}
+                        </button>
 
                         {/* Column Settings Button (only in list mode) */}
                         {viewMode === 'list' && (

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Product, api } from "@/lib/api";
-import { ArrowLeft, MoreHorizontal, Share, Download, Heart, BookmarkPlus, Trash2, FileText } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Share2, Download, Heart, BookmarkPlus, Trash2, ClipboardList, FileText } from "lucide-react";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Image from "next/image";
@@ -12,11 +12,25 @@ interface ProductFullViewProps {
     product: Product;
     onBack: () => void;
     onSave?: (product: Product) => void;
+    currencyMode?: 'rub' | 'original';
+    exchangeRate?: number;
 }
 
-export function ProductFullView({ product, onBack, onSave }: ProductFullViewProps) {
+export function ProductFullView({ product, onBack, onSave, currencyMode = 'original', exchangeRate = 100 }: ProductFullViewProps) {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
+    const [shareNotification, setShareNotification] = useState(false);
+
+    const handleShare = async () => {
+        const url = `${window.location.origin}${window.location.pathname}?product=${product.slug}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            setShareNotification(true);
+            setTimeout(() => setShareNotification(false), 2000);
+        } catch (err) {
+            console.error("Failed to copy URL", err);
+        }
+    };
 
     // Combine main image and gallery
     // Combine all image sources
@@ -63,15 +77,18 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                                         const parsed = parseFloat(String(priceParam).replace(',', '.').replace(/[^\d.]/g, ''));
                                         if (!isNaN(parsed) && parsed > 0) {
                                             price = parsed;
-                                        } else {
-                                            // If parse fails, return raw string if it looks like price?
-                                            // simpler to prioritize parsed.
                                         }
                                     }
                                 }
 
+                                // Convert to rubles if needed
+                                if (price && currencyMode === 'rub' && currency !== 'RUB') {
+                                    price = Math.round(price * exchangeRate);
+                                    currency = 'RUB';
+                                }
+
                                 return (
-                                    <span>{price ? `${price.toLocaleString()} ${currency}` : "Цена не указана"}</span>
+                                    <span>{price ? `${price.toLocaleString()} ${currency === 'RUB' ? '₽' : currency}` : "Цена не указана"}</span>
                                 );
                             })()}
                         </div>
@@ -87,11 +104,25 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                             <Heart className="h-4 w-4" />
                             <span>Сохранить</span>
                         </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413] relative"
+                            onClick={handleShare}
+                            title="Поделиться ссылкой"
+                        >
+                            <Share2 className="h-5 w-5" />
+                            {shareNotification && (
+                                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-50">
+                                    Скопировано!
+                                </span>
+                            )}
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413]" onClick={() => setIsDetailsOpen(true)} title="Характеристики">
+                            <ClipboardList className="h-5 w-5" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413]" onClick={() => setIsDescriptionOpen(true)} title="Полное описание">
                             <FileText className="h-5 w-5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-black/5 text-[#141413]" onClick={() => setIsDetailsOpen(true)}>
-                            <MoreHorizontal className="h-5 w-5" />
                         </Button>
                     </div>
                 </div>
