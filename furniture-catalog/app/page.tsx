@@ -642,8 +642,10 @@ export default function Home() {
             product={selectedProduct}
             onBack={() => setSelectedProduct(null)}
             onSave={(p) => setProductToSave(p)}
+            onProductUpdate={(p) => setSelectedProduct(p)}
             currencyMode={showRubles ? 'rub' : 'original'}
             exchangeRate={exchangeRate}
+            accessToken={accessToken}
           />
         </div>
       )}

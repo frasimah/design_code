@@ -78,6 +78,11 @@ export interface UpdateImageResponse {
     image_url: string;
 }
 
+export interface DeleteImageResponse {
+    status: string;
+    deleted_image: string;
+}
+
 export interface DeleteProductResponse {
     status: string;
     message: string;
@@ -259,6 +264,22 @@ export const api = {
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to update image');
+        }
+        return response.json();
+    },
+
+    async deleteProductImage(slug: string, imageUrl: string, token?: string): Promise<DeleteImageResponse> {
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch(`${API_BASE_URL}/products/${slug}/image`, {
+            method: 'DELETE',
+            headers,
+            body: JSON.stringify({ image_url: imageUrl })
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to delete image');
         }
         return response.json();
     },

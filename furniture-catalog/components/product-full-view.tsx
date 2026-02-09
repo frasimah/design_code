@@ -12,14 +12,17 @@ interface ProductFullViewProps {
     product: Product;
     onBack: () => void;
     onSave?: (product: Product) => void;
+    onProductUpdate?: (product: Product) => void;
     currencyMode?: 'rub' | 'original';
     exchangeRate?: number;
+    accessToken?: string;
 }
 
-export function ProductFullView({ product, onBack, onSave, currencyMode = 'original', exchangeRate = 100 }: ProductFullViewProps) {
+export function ProductFullView({ product, onBack, onSave, onProductUpdate, currencyMode = 'original', exchangeRate = 100, accessToken }: ProductFullViewProps) {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
     const [shareNotification, setShareNotification] = useState(false);
+    const [deletingImage, setDeletingImage] = useState<string | null>(null);
 
     const handleShare = async () => {
         const url = `${window.location.origin}${window.location.pathname}?product=${product.slug}`;
@@ -32,16 +35,40 @@ export function ProductFullView({ product, onBack, onSave, currencyMode = 'origi
         }
     };
 
-    // Combine main image and gallery
-    // Combine all image sources
+    // Combine main image and gallery - keep original URLs for API calls
     const rawImages = [
         ...(product.images || []),
         product.main_image,
         ...(product.gallery || [])
     ].filter((img): img is string => !!img);
 
-    // Deduplicate and proxy
-    const images = Array.from(new Set(rawImages)).map(img => api.getProxyImageUrl(img));
+    // Deduplicate
+    const originalImages = Array.from(new Set(rawImages));
+    // Create proxied versions for display
+    const displayImages = originalImages.map(img => api.getProxyImageUrl(img));
+
+    const handleDeleteImage = async (originalUrl: string) => {
+        if (!product.slug || deletingImage) return;
+
+        setDeletingImage(originalUrl);
+        try {
+            await api.deleteProductImage(product.slug, originalUrl, accessToken);
+            // Update local product state
+            const updatedProduct = {
+                ...product,
+                images: (product.images || []).filter(img => img !== originalUrl),
+                gallery: (product.gallery || []).filter(img => img !== originalUrl),
+                main_image: product.main_image === originalUrl
+                    ? (product.images?.filter(img => img !== originalUrl)[0] || product.gallery?.filter(img => img !== originalUrl)[0])
+                    : product.main_image
+            };
+            onProductUpdate?.(updatedProduct);
+        } catch (error) {
+            console.error("Failed to delete image:", error);
+        } finally {
+            setDeletingImage(null);
+        }
+    };
 
     return (
         <div className="max-w-[calc(100%-2rem)] md:max-w-4xl mx-auto w-full py-8 pl-12 md:pl-0">
@@ -154,13 +181,13 @@ export function ProductFullView({ product, onBack, onSave, currencyMode = 'origi
             </div>
 
             {/* Grid of Images */}
-            {images.length === 0 ? (
+            {displayImages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-[#1f1e1d1a] rounded-xl bg-secondary/10">
                     <div className="text-muted-foreground">Нет изображений</div>
                 </div>
             ) : (
                 <div className="columns-1 sm:columns-2 md:columns-3 gap-4 space-y-4">
-                    {images.map((img, idx) => (
+                    {displayImages.map((img: string, idx: number) => (
                         <div
                             key={idx}
                             className="relative rounded-xl overflow-hidden group bg-secondary/20 shadow-sm hover:shadow-md transition-all break-inside-avoid"
@@ -181,16 +208,13 @@ export function ProductFullView({ product, onBack, onSave, currencyMode = 'origi
                                     className="h-8 w-8 rounded-full bg-white/90 hover:bg-red-50 text-[#141413] hover:text-red-600 shadow-sm backdrop-blur-sm"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        // Remove this image from the product
-                                        if (onSave) {
-                                            const updatedImages = images.filter((_, i) => i !== idx);
-                                            onSave({
-                                                ...product,
-                                                images: updatedImages,
-                                                main_image: updatedImages[0] || undefined
-                                            });
+                                        // Get original URL for this image
+                                        const originalUrl = originalImages[idx];
+                                        if (originalUrl) {
+                                            handleDeleteImage(originalUrl);
                                         }
                                     }}
+                                    disabled={deletingImage === originalImages[idx]}
                                 >
                                     <Trash2 className="h-4 w-4" />
                                 </Button>

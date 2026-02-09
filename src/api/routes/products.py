@@ -988,3 +988,102 @@ async def update_product_image(slug: str, request: UpdateImageRequest, user: dic
     except Exception as e:
         print(f"Error updating image: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to update image: {str(e)}")
+
+
+class DeleteImageRequest(BaseModel):
+    image_url: str
+
+
+@router.delete("/{slug}/image")
+async def delete_product_image(slug: str, request: DeleteImageRequest, user: dict = Depends(get_current_user)):
+    """Delete a specific image from a product's gallery"""
+    if not user or not user.get("id"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    image_url_to_delete = request.image_url
+    
+    product = catalog_dict.get(slug)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    source_id = product.get('source', 'catalog')
+    
+    # Ownership check for custom sources
+    if source_id not in ['catalog', 'woocommerce']:
+        config = get_sources_config()
+        source_meta = config.get(f"_meta_{source_id}", {})
+        source_owner = source_meta.get("user_id")
+        if source_owner and source_owner != user["id"]:
+            raise HTTPException(status_code=403, detail="You do not own this product's source")
+    
+    # Determine file path
+    file_path = None
+    if source_id == 'catalog':
+        file_path = PRODUCTS_JSON_PATH
+    elif source_id == 'woocommerce':
+        file_path = DATA_DIR / "processed" / "full_catalog.json"
+    elif source_id == 'custom_links':
+        file_path = CUSTOM_CATALOGS_DIR / "custom_links.json"
+    else:
+        file_path = CUSTOM_CATALOGS_DIR / f"{source_id}.json"
+    
+    if not file_path or not file_path.exists():
+        raise HTTPException(status_code=404, detail="Source file not found")
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            
+        updated = False
+        target_item = None
+        
+        items_list = data if isinstance(data, list) else data.get("items", [])
+            
+        for item in items_list:
+            item_slug = item.get('slug', '') or ''
+            title_slug = slugify(item.get('title', '')) if item.get('title') else ''
+            name_slug = slugify(item.get('name', '')) if item.get('name') else ''
+            item_article = str(item.get('article', '')).lower().strip()
+            slug_lower = slug.lower()
+            
+            if (item_slug == slug or 
+                title_slug == slug or
+                name_slug == slug or
+                (item_article and item_article == slug_lower) or
+                (item_article and slug_lower.endswith(item_article))):
+                
+                # Remove from images array
+                if 'images' in item and isinstance(item['images'], list):
+                    item['images'] = [img for img in item['images'] if img != image_url_to_delete]
+                
+                # Remove from gallery array
+                if 'gallery' in item and isinstance(item['gallery'], list):
+                    item['gallery'] = [img for img in item['gallery'] if img != image_url_to_delete]
+                
+                # If main_image was deleted, set new one
+                if item.get('main_image') == image_url_to_delete:
+                    all_images = item.get('images', []) + item.get('gallery', [])
+                    item['main_image'] = all_images[0] if all_images else None
+                
+                target_item = item
+                updated = True
+                break
+        
+        if updated:
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            # Update global cache
+            if target_item:
+                product['images'] = target_item.get('images', [])
+                product['gallery'] = target_item.get('gallery', [])
+                product['main_image'] = target_item.get('main_image')
+            
+            return {"status": "success", "deleted_image": image_url_to_delete}
+        else:
+            raise HTTPException(status_code=404, detail="Product not found in source file")
+
+    except Exception as e:
+        print(f"Error deleting image: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete image: {str(e)}")
+
