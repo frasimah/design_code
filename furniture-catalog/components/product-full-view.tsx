@@ -128,20 +128,17 @@ export function ProductFullView({ product, onBack, onSave }: ProductFullViewProp
                     <div className="text-muted-foreground">Нет изображений</div>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="columns-1 sm:columns-2 md:columns-3 gap-4 space-y-4">
                     {images.map((img, idx) => (
                         <div
                             key={idx}
-                            className="relative rounded-xl overflow-hidden group bg-secondary/20 shadow-sm hover:shadow-md transition-all"
+                            className="relative rounded-xl overflow-hidden group bg-secondary/20 shadow-sm hover:shadow-md transition-all break-inside-avoid"
                         >
-                            <Image
+                            <img
                                 src={img}
                                 alt={`${product.name} ${idx + 1}`}
-                                width={500}
-                                height={500}
-                                unoptimized
-                                className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
-                                sizes="(max-width: 768px) 100vw, 33vw"
+                                className="w-full h-auto transition-transform duration-500 group-hover:scale-105"
+                                loading="lazy"
                             />
 
                             {/* Action Buttons - Right side */}

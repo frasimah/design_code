@@ -89,13 +89,9 @@ export function MaterialsView({
         }).catch(console.error);
     }, [accessToken]);
 
-    // Reset when filters change
-    useEffect(() => {
-        setProducts([]);
-        setPage(1);
-        setHasMore(true);
-        // We handle the actual fetch in the next effect which tracks page/filters
-    }, [debouncedQuery, selectedCategory, selectedSources, activeSort, selectedBrands]);
+    // Track filter version to detect filter changes
+    const filterKey = `${debouncedQuery}-${selectedCategory}-${selectedSources.join(',')}-${activeSort}-${selectedBrands.join(',')}`;
+    const prevFilterKeyRef = useRef(filterKey);
 
     // Fetch products
     useEffect(() => {
@@ -104,7 +100,16 @@ export function MaterialsView({
         async function fetchProducts() {
             setLoading(true);
             try {
-                const offset = (page - 1) * LIMIT;
+                // Detect if filters changed (new filterKey)
+                const filtersChanged = prevFilterKeyRef.current !== filterKey;
+                if (filtersChanged) {
+                    prevFilterKeyRef.current = filterKey;
+                }
+
+                // If filters changed, always use offset=0 and reset products
+                const currentPage = filtersChanged ? 1 : page;
+                const offset = (currentPage - 1) * LIMIT;
+
                 // Pass category and brand
                 // Join arrays with comma for API
                 const sourceParam = selectedSources.length > 0 && !selectedSources.includes('all') ? selectedSources.join(',') : undefined;
@@ -127,10 +132,14 @@ export function MaterialsView({
                     setTotalCount(total);
                     if (items.length < LIMIT) {
                         setHasMore(false);
+                    } else {
+                        setHasMore(true);
                     }
 
-                    if (page === 1) {
+                    // If filters changed or page is 1, replace products; otherwise append
+                    if (filtersChanged || currentPage === 1) {
                         setProducts(items);
+                        setPage(1); // Sync page state
                     } else {
                         setProducts(prev => [...prev, ...items]);
                     }
@@ -144,25 +153,25 @@ export function MaterialsView({
             }
         }
 
-        if (hasMore) {
-            fetchProducts();
-        }
+        fetchProducts();
 
         return () => { active = false; };
-        // Only trigger on filter changes or page increment, NOT on 'hasMore' alone to avoid loops
-    }, [debouncedQuery, selectedCategory, selectedSources, page, activeSort, selectedBrands]);
+        // Trigger on filter changes or page increment
+    }, [debouncedQuery, selectedCategory, selectedSources, page, activeSort, selectedBrands, filterKey]);
 
     // Categories State
     const [categories, setCategories] = useState<{ value: string, label: string }[]>([
         { value: "all", label: "Все категории" }
     ]);
 
-    // Fetch Categories when Source Changes
+    // Fetch Categories when Source or Brands Change
     useEffect(() => {
         async function loadCategories() {
             try {
                 const sourceParam = selectedSources.length > 0 && !selectedSources.includes('all') ? selectedSources.join(',') : 'catalog';
-                const data = await api.getCategories(sourceParam);
+                const brandParam = selectedBrands.length > 0 && !selectedBrands.includes('all') ? selectedBrands.join(',') : undefined;
+
+                const data = await api.getCategories(sourceParam, brandParam);
                 setCategories(data.map(c => ({
                     value: c.id,
                     label: c.name
@@ -174,7 +183,7 @@ export function MaterialsView({
             }
         }
         loadCategories();
-    }, [selectedSources]);
+    }, [selectedSources, selectedBrands]);
 
     // Brands State
     const [brands, setBrands] = useState<{ value: string, label: string }[]>([

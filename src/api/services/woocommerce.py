@@ -173,19 +173,35 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
     }
     # Try to load from FULL CACHE first
     full_cache_path = DATA_DIR / "wc_full_cache.json"
+    normalized_cache_path = DATA_DIR / "processed" / "wc_catalog.json"
+    
+    all_items = []
+    is_normalized = False
+    
     if full_cache_path.exists():
         try:
-            # Memory caching for the file read could be added here to avoid reading disk on every request
-            # For now, let's read distinct if not too heavy. 2-3MB is fine.
-            # Ideally use a global variable or lru_cache for the file content loader.
             with open(full_cache_path, 'r', encoding='utf-8') as f:
                 cache_data = json.load(f)
                 all_items = cache_data.get('products', [])
-                
+                is_normalized = False
+        except Exception as e:
+            print(f"Error reading local WC raw cache: {e}")
+    
+    # Fallback to normalized catalog if raw cache is missing
+    if not all_items and normalized_cache_path.exists():
+        try:
+            with open(normalized_cache_path, 'r', encoding='utf-8') as f:
+                all_items = json.load(f)
+                is_normalized = True
+        except Exception as e:
+            print(f"Error reading normalized WC catalog: {e}")
+
+    if all_items:
+        try:
             # Filter in Python
             filtered_items = []
             
-            # Resolve Brand ID if needed
+            # Resolve Brand ID if needed for raw items
             target_brand_id = None
             if brand and brand != 'all':
                 if brand.isdigit():
@@ -194,6 +210,8 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
                     brand_id_str = get_brand_id_by_name(brand)
                     if brand_id_str:
                         target_brand_id = int(brand_id_str)
+            
+            brand_query_lower = brand.lower() if brand and brand != 'all' else None
 
             # Filtering Loop
             for p in all_items:
@@ -205,24 +223,59 @@ def fetch_wc_products(page: int = 1, limit: int = 20, query: Optional[str] = Non
                 
                 # 2. Category (Basic check, might need strict ID check depending on data)
                 if category and category != 'all':
-                    # Check if category ID or Slug matches
-                    # p['categories'] is list of dicts {id, name, slug}
-                    cats = p.get('categories', [])
-                    match = False
-                    for c in cats:
-                        if str(c.get('id')) == category or c.get('slug') == category:
-                            match = True
-                            break
-                    if not match:
-                        continue
+                    # Support normalized data that has 'category' as a string field
+                    p_category_str = p.get('category', '').lower()
+                    category_lower = category.lower()
+                    
+                    # If category is a numeric ID, try to resolve it to a name
+                    category_name_for_matching = category_lower
+                    if category.isdigit():
+                        # Lookup category name from WC categories cache
+                        wc_cats = fetch_wc_categories()  # Uses cache
+                        for wc_cat in wc_cats:
+                            if str(wc_cat.get('id')) == category:
+                                category_name_for_matching = wc_cat.get('name', '').lower()
+                                break
+                    
+                    # First try to match against the normalized 'category' string
+                    if p_category_str and category_name_for_matching in p_category_str:
+                        pass  # Match found, continue processing
+                    else:
+                        # Check if category ID, Slug, or Name matches in categories array
+                        # p['categories'] is list of dicts {id, name, slug}
+                        cats = p.get('categories', [])
+                        match = False
+                        for c in cats:
+                            if (str(c.get('id')) == category or 
+                                c.get('slug') == category or
+                                c.get('name', '').lower() == category_name_for_matching):
+                                match = True
+                                break
+                        if not match:
+                            continue
 
                 # 3. Brand
-                if target_brand_id:
-                     p_brands = p.get('brands', [])
-                     if not any(b.get('id') == target_brand_id for b in p_brands):
-                         continue
+                if brand and brand != 'all':
+                    # Support both raw WooCommerce 'brands' field and normalized 'brand' field
+                    p_brands = p.get('brands', [])
+                    p_brand_name = p.get('brand', '') # from normalized data
+                    
+                    found_brand = False
+                    if target_brand_id and any(b.get('id') == target_brand_id for b in p_brands):
+                         found_brand = True
+                    elif brand_query_lower and p_brand_name.lower() == brand_query_lower:
+                         found_brand = True
+                    # Also check if brand name matches in brands list
+                    elif brand_query_lower and any(b.get('name', '').lower() == brand_query_lower for b in p_brands):
+                         found_brand = True
+                         
+                    if not found_brand:
+                        continue
                 
-                filtered_items.append(normalize_wc_product(p))
+                if is_normalized:
+                    filtered_items.append(p)
+                else:
+                    filtered_items.append(normalize_wc_product(p))
             
             # Sorting
             if sort:
@@ -463,8 +516,30 @@ def get_wc_product_by_slug(slug: str) -> Optional[dict]:
     except Exception:
         return None
 
-def fetch_wc_categories() -> List[dict]:
+def fetch_wc_categories(brand: Optional[str] = None) -> List[dict]:
     """Fetch categories from WooCommerce API with caching."""
+    if brand and brand != 'all':
+        # If brand is specified, extract categories from products associated with this brand
+        from .woocommerce import fetch_wc_products
+        # We fetch a large number of products for this brand to get an accurate category list
+        # Using limit=100 as a reasonable upper bound for category extraction
+        products, _ = fetch_wc_products(page=1, limit=100, brand=brand)
+        
+        unique_brand_cats = {}
+        for p in products:
+            cat_name = p.get('category')
+            if cat_name:
+                # Extract parent category (before " / ") if present
+                if ' / ' in cat_name:
+                    parent_cat = cat_name.split(' / ')[0].strip()
+                else:
+                    parent_cat = cat_name
+                # Use parent category name as ID for UI consistency
+                if parent_cat not in unique_brand_cats:
+                    unique_brand_cats[parent_cat] = {"id": parent_cat, "name": parent_cat}
+        
+        return sorted(list(unique_brand_cats.values()), key=lambda x: x['name'])
+
     cache_key = "wc_categories_list"
     cached = _get_from_cache(cache_key, ttl=86400) # Cache for 24h
     if cached:

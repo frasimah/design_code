@@ -777,14 +777,37 @@ async def get_brands(source: str = 'catalog'):
     return [{"id": b, "name": b} for b in sorted_brands]
 
 @router.get("/categories/", response_model=List[dict])
-async def get_categories(source: str = 'catalog'):
+async def get_categories(source: str = 'catalog', brand: Optional[str] = None):
     if source == 'woocommerce':
         from src.api.services.woocommerce import fetch_wc_categories
-        cats = fetch_wc_categories()
+        cats = fetch_wc_categories(brand=brand)
         return [{"id": "all", "name": "Все категории"}] + cats
 
     unique_cats = set()
+    requested_sources = source.split(',') if source else ['catalog']
+    
+    # Filter catalog_data by requested sources AND brand
     for p in catalog_data:
+        p_source = p.get('source', 'catalog')
+        
+        # Check source
+        should_include_source = False
+        if 'all' in requested_sources:
+            should_include_source = True
+        elif p_source in requested_sources:
+            should_include_source = True
+        elif 'catalog' in requested_sources and (p_source == 'products_json' or p_source == 'catalog'):
+            should_include_source = True
+            
+        if not should_include_source:
+            continue
+            
+        # Check brand
+        if brand and brand != 'all':
+            p_brand = p.get('brand', '')
+            if p_brand.lower() != brand.lower():
+                continue
+                
         c = p.get('category')
         if c:
             unique_cats.add(c)

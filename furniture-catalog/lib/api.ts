@@ -104,8 +104,10 @@ export const api = {
         return res.json();
     },
 
-    async getCategories(source: string = 'catalog'): Promise<{ id: string, name: string }[]> {
-        const res = await fetch(`${API_BASE_URL}/products/categories/?source=${source}`);
+    async getCategories(source: string = 'catalog', brand?: string): Promise<{ id: string, name: string }[]> {
+        const params = new URLSearchParams({ source });
+        if (brand && brand !== 'all') params.append('brand', brand);
+        const res = await fetch(`${API_BASE_URL}/products/categories/?${params.toString()}`);
         if (!res.ok) throw new Error('Failed to fetch categories');
         return res.json();
     },
