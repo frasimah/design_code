@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form, Depends
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form, Depends, BackgroundTasks
 from fastapi.responses import Response
 import httpx
 from typing import List, Optional
@@ -13,6 +13,7 @@ import ipaddress
 import socket
 from urllib.parse import urlparse
 from src.api.auth.jwt import get_current_user
+from src.api.services.catalog_sync import sync_woocommerce_catalog, get_sync_status
 
 router = APIRouter()
 
@@ -924,6 +925,25 @@ async def get_product(slug: str):
         return product
         
     raise HTTPException(status_code=404, detail="Product not found")
+@router.post("/sync-woocommerce")
+async def sync_woocommerce(
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Trigger background synchronization of WooCommerce catalog.
+    Only authenticated users can trigger this.
+    """
+    background_tasks.add_task(sync_woocommerce_catalog)
+    return {"status": "started", "message": "WooCommerce catalog sync started in background"}
+
+@router.get("/sync-woocommerce/status")
+async def sync_woocommerce_status(user: dict = Depends(get_current_user)):
+    """
+    Get the status of the background synchronization.
+    """
+    return get_sync_status()
+
 @router.get("/proxy-image")
 async def proxy_image(url: str = Query(..., description="The URL of the external image")):
     """

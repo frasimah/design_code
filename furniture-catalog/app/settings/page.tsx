@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { api, UserProfile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
 export default function SettingsPage() {
@@ -13,6 +13,10 @@ export default function SettingsPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncStatus, setSyncStatus] = useState<any>(null);
+
+
     const [profile, setProfile] = useState<UserProfile>({
         manager_name: "",
         phone: "",
@@ -20,6 +24,28 @@ export default function SettingsPage() {
         company_name: ""
     });
     const accessToken = (session as any)?.accessToken;
+
+    useEffect(() => {
+        if (!accessToken) return;
+
+        const checkStatus = async () => {
+            try {
+                const status = await api.getSyncStatus(accessToken);
+                setSyncStatus(status);
+                if (status.is_running) {
+                    setSyncing(true);
+                } else if (syncing && status.status !== 'running') {
+                    setSyncing(false);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        checkStatus();
+        const interval = setInterval(checkStatus, 3000);
+        return () => clearInterval(interval);
+    }, [accessToken]);
 
     useEffect(() => {
         // Safety timeout: stop loading after 2 seconds regardless of status
@@ -58,6 +84,22 @@ export default function SettingsPage() {
 
 
 
+
+    const handleSync = async () => {
+        if (!accessToken) return;
+        if (!confirm("Это запустит полную синхронизацию каталога с сайтом de-co-de.ru. Процесс может занять несколько минут и выполняется в фоне. Вы уверены?")) return;
+
+        setSyncing(true);
+        try {
+            await api.syncWoocommerceCatalog(accessToken);
+            alert("Синхронизация успешно запущена в фоновом режиме. Каталог товаров обновится автоматически через несколько минут.");
+        } catch (error) {
+            console.error("Sync failed:", error);
+            alert("Ошибка запуска синхронизации: " + (error as Error).message);
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -176,6 +218,42 @@ export default function SettingsPage() {
                             </Button>
                         </div>
                     </form>
+                </div>
+
+                <div className="bg-white rounded-xl border border-[#E6E2DD] p-6 shadow-sm mt-8">
+                    <h2 className="text-lg font-medium text-[#141413] mb-4">Управление каталогом</h2>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-[#141413]">Синхронизация с WooCommerce</p>
+                            <div className="text-xs text-neutral-500 mt-1">
+                                {syncStatus && syncStatus.is_running ? (
+                                    <span className="text-amber-600 font-medium">
+                                        {syncStatus.message}
+                                        {syncStatus.total_est > 0 ? ` (${syncStatus.fetched}/${syncStatus.total_est})` : ` (${syncStatus.fetched})`}
+                                    </span>
+                                ) : (
+                                    syncStatus?.status === 'completed' ? (
+                                        <span className="text-green-600">{syncStatus.message}</span>
+                                    ) : (
+                                        syncStatus?.status === 'error' ? (
+                                            <span className="text-red-600">{syncStatus.message}: {syncStatus.error}</span>
+                                        ) : (
+                                            "Загружает свежие данные с сайта de-co-de.ru. Процесс выполняется в фоне."
+                                        )
+                                    )
+                                )}
+                            </div>
+                        </div>
+                        <Button
+                            onClick={handleSync}
+                            disabled={syncing}
+                            variant="outline"
+                            className="border-[#E6E2DD] hover:bg-[#faf9f5] text-[#141413]"
+                        >
+                            <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                            {syncing ? "Запуск..." : "Обновить выгрузку"}
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

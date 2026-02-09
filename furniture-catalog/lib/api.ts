@@ -199,6 +199,42 @@ export const api = {
         return res.json();
     },
 
+    async syncWoocommerceCatalog(token?: string): Promise<{ status: string, message: string }> {
+        const headers: HeadersInit = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`${API_BASE_URL}/products/sync-woocommerce`, {
+            method: 'POST',
+            headers
+        });
+
+        if (!res.ok) {
+            const error = await res.json().catch(() => ({}));
+            throw new Error(error.detail || 'Failed to start sync');
+        }
+        return res.json();
+    },
+
+    async getSyncStatus(token?: string): Promise<{
+        is_running: boolean;
+        status: string;
+        fetched: number;
+        total_est: number;
+        message: string;
+        error: string | null;
+        started_at: number;
+    }> {
+        const headers: HeadersInit = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`${API_BASE_URL}/products/sync-woocommerce/status`, {
+            headers
+        });
+
+        if (!res.ok) throw new Error('Failed to get sync status');
+        return res.json();
+    },
+
     async getSources(token?: string): Promise<{ id: string, name: string }[]> {
         const headers: HeadersInit = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
