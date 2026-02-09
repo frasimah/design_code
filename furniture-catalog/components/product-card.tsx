@@ -326,6 +326,19 @@ export function ProductCard({
 
                 {/* Bookmark/Action Icon Overlay */}
                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex gap-2">
+                    {/* Delete button - only show in catalog view (actionMode !== 'delete') */}
+                    {actionMode !== 'delete' && (
+                        <Button
+                            size="icon"
+                            variant="secondary"
+                            className="h-8 w-8 rounded-full bg-white/90 hover:bg-white shadow-sm backdrop-blur-sm text-red-500 hover:text-red-600"
+                            onClick={handleDeleteProduct}
+                            title="Удалить товар"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    )}
+
                     <input
                         type="file"
                         id={`upload-${product.slug}`}
